@@ -44,7 +44,7 @@ public class Kino {
                     if (!tempPage.contains(phrase)) {
                         search(tempPage, phrase);
                     } else {
-                        printSuccess("  -  ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
+                        printSuccess(" - ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
                         break;
                     }
                 }
@@ -54,7 +54,7 @@ public class Kino {
                 if (tempPage.equals(oldPage)) {
                     searchAndSleep(interwal * 1_000, tempPage);
                 } else {
-                    printSuccess("  -  JEST ZMIANA STRONY!!!!", null);
+                    printSuccess(" - JEST ZMIANA STRONY!!!!", null);
                     break;
                 }
             }
@@ -63,6 +63,9 @@ public class Kino {
     }
 
     private static void helpText() {
+//        for (int i = 0; i < 256; i++) {
+//            System.out.println(i + " -  \u001B["+i+"m   TEST TEST   \u001B[0m");
+//        }
         System.out.println("Parametry programu:");
         System.out.println("-u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)");
         System.out.println("-i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)");
@@ -207,14 +210,13 @@ public class Kino {
     }
 
     private static void printSuccess(String text, String phrase) {
-        System.out.println("\u001B[31m" + getTime() + text);
-        System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" + "\u001B[0m");
+        System.out.println("\u001B[01;41m" + getTime() + text + "\n\u001B[0m");
         if (email != null) sendMail(url, phrase);
-        if (sound == Boolean.TRUE) playSound(10_000);
+        if (sound) playSound(10_000);
     }
 
     private static void sendMail(String urlString, String searchedPhrase) {
-        playSound(3);
+        if (sound) playSound(3);
         // Dane do serwera pocztowego oraz logowania
         String host = "smtp.gmail.com"; // Tutaj podaj adres serwera SMTP
         String port = "587"; // Port serwera SMTP
