@@ -11,103 +11,137 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class Kino {
-    /*
-        pierwszy argument - adres, np:   https://www.helios.pl/58,Gdansk/BazaFilmow/Szczegoly/film/30970/DIUNA%3A-Czesc-druga
-        drugi argument - interwał odswiezania w sekundach
-        trzeci argument - czy wysylac mail (true lub false)
-        czwarty argument, opcjonalny, szukany tekst, np:   "<div class=""day-number"">19</div>"
-        jesli go nie podasz bedzie sprawdzal zmiane strony
-     */
+    private static String url = "https://trojmiasto.pl";
+    private static Long interwal = 10L;
+    private static Long finish = 1_000_000L;
+    private static String email;
+    private static Boolean sound = Boolean.FALSE;
+    private static List<String> phrases;
+    private static final String EMAIL_REGEX =
+            "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
+                    + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
+
     public static void main(String[] args) throws Exception {
-        sprawdzanieArgsow(args);
-        String urlString = args[0];
+        helpText();
+        argsParsing(args);
+        initialText();
 
-        Long interwal;
-        try {
-            interwal = Long.parseLong(args[1]);
-        } catch (Exception e) {
-            System.out.println("Drugi parametr musi byc liczba! Ustawiam odswiezanie na domyslne 10s");
-            interwal = 10L;
-        }
+        String oldPage = connection(url);
+        while (finish > 0) {
+            String tempPage = connection(url);
+            if (emptyPageProtection(tempPage)) continue;
 
-        Boolean emailSending = Boolean.parseBoolean(args[2]);
-
-        initialText(args, urlString, interwal, emailSending);
-
-        String oldPage = connection(urlString);
-        Thread.sleep(interwal * 1000);
-        int errorCounter = 0;
-        while (true) {
-            String tempPage = connection(urlString);
-            if (tempPage.length() == 0) {
-                errorCounter++;
-                Thread.sleep(interwal * 1000);
-                continue;
-            }
-            if (errorCounter >= 3) {
-                System.out.println("Nie można połączyć się z podaną stroną.");
-                break;
-            }
-
-            if (args.length >= 4) {
-                for (int i = 3; i < args.length; i++) {
-                    String searchedText = args[i].toLowerCase().trim().replaceAll("\\s", "");
-                    if (!tempPage.toLowerCase().trim().replaceAll("\\s", "").contains(searchedText)) {
-                        search(tempPage, searchedText);
+            if (phrases != null) {
+                for (String phrase : phrases) {
+                    if (!tempPage.contains(phrase)) {
+                        search(tempPage, phrase);
                     } else {
-                        printSuccess("  -  ZNALEZIONO TEKST: " + searchedText + "!!!!");
-                        if (emailSending == Boolean.TRUE) sendMail(urlString, searchedText);
-                        playSound(10000);
+                        printSuccess("  -  ZNALEZIONO TEKST: " + phrase + "!!!!");
+                        if (email != null) sendMail(url, phrase);
+                        if (sound == Boolean.TRUE) playSound(10_000);
                         break;
                     }
                 }
                 System.out.println();
-                Thread.sleep(interwal * 1000);
+                Thread.sleep(interwal * 1_000);
             } else {
                 if (tempPage.equals(oldPage)) {
-                    searchAndSleep(interwal * 1000, tempPage);
+                    searchAndSleep(interwal * 1_000, tempPage);
                 } else {
                     printSuccess("  -  JEST ZMIANA STRONY!!!!");
-                    if (emailSending == Boolean.TRUE) sendMail(urlString, null);
-                    playSound(10000);
+                    if (email != null) sendMail(url, null);
+                    if (sound == Boolean.TRUE) playSound(10_000);
                     break;
                 }
+            }
+            finish--;
+        }
+    }
+
+    private static void helpText() {
+        System.out.println("Parametry programu:");
+        System.out.println("-u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)");
+        System.out.println("-i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)");
+        System.out.println("-f (finish) - ilosc iteracji programu");
+        System.out.println("-e (e-mail) - adres email na ktory chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila");
+        System.out.println("-s (sound) - czy program ma nadawac dzwiek w petli, wartosci 'true' lub 'false' (domyslnie: false)");
+        System.out.println("-p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila");
+    }
+
+
+    private static void argsParsing(String[] args){
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("-u")) {
+                url = args[i + 1];
+            }
+            if (args[i].equals("-i")) {
+                try {
+                    interwal = Long.parseLong(args[i + 1]);
+                } catch (Exception e) {
+                    System.out.println("-i parametr musi byc liczba! Ustawiam odswiezanie na domyslne 10s");
+                    interwal = 10L;
+                }
+            }
+            if (args[i].equals("-f")) {
+                try {
+                    finish = Long.parseLong(args[i + 1]);
+                } catch (Exception e) {
+                    System.out.println("\n\u001B[31mParametr finish musi byc liczba!\u001B[0m\n");
+                }
+            }
+            if (args[i].equals("-e")) {
+                if (isValidEmail(args[i + 1])) {
+                    email = args[i + 1];
+                } else {
+                    System.out.println("\n\u001B[31mNieprawidlowy adres email!\u001B[0m\n");
+                }
+            }
+            if (args[i].equals("-s")) {
+                sound = Boolean.parseBoolean(args[i + 1]);
+            }
+            if (args[i].equals("-p")) {
+                phrases = new ArrayList<>();
+                for (int j = i + 1; j < args.length; j++) {
+                    String phrase = args[j].toLowerCase().trim().replaceAll("\\s", "");
+                    if (!phrase.equals("-u") && !phrase.equals("-i") && !phrase.equals("-f") && !phrase.equals("-e") && !phrase.equals("-s") && !phrase.equals("-p")) {
+                        phrases.add(phrase);
+                        i++;
+                    } else {
+                        break;
+                    }
+                }
+
             }
         }
     }
 
-    private static void initialText(String[] args, String urlString, Long interwal, Boolean emailSending) {
-        String initialTxt = "\nStrona: \u001B[35m" + urlString + "\u001B[0m\n";
+    private static void initialText() {
+        String initialTxt = "\nStrona: \u001B[35m" + url + "\u001B[0m\n";
         initialTxt = initialTxt.concat("Czestotliwosc odswiezania: \u001B[35m" + interwal + "s \u001B[0m\n");
-        initialTxt = initialTxt.concat("Wysylanie maila: \u001B[35m" + emailSending + "\u001B[0m\n");
-        if (args.length >= 4) {
+        initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + finish + " iteracjach \u001B[0m\n");
+        if (email != null) initialTxt = initialTxt.concat("Adres wysylki emaila: \u001B[35m" + email + "\u001B[0m\n");
+        initialTxt = initialTxt.concat("Dzwiek: \u001B[35m" + sound + "\u001B[0m\n");
+        if (phrases != null) {
             initialTxt = initialTxt.concat("Szukanie fraz:\n\u001B[35m");
-            for (int i = 3; i < args.length; i++) {
-                initialTxt = initialTxt.concat(args[i].toLowerCase().trim().replaceAll("\\s", "").concat("\n"));
+            for (String phrase : phrases) {
+                initialTxt = initialTxt.concat(phrase).concat("\n");
             }
             initialTxt = initialTxt.concat("\u001B[0m\n");
         }
         System.out.println(initialTxt);
     }
 
-    private static void sprawdzanieArgsow(String[] args) throws InterruptedException {
-        if (args.length < 3) {
-            System.out.println("\nPotrzebne sa przynajmniej 3 parametry.");
-            System.out.println("pierwszy argument - adres, np:   https://www.helios.pl/58,Gdansk/BazaFilmow/Szczegoly/film/30970/DIUNA%3A-Czesc-druga");
-            System.out.println("drugi argument - interwał odswiezania w sekundach");
-            System.out.println("trzeci argument - czy wysylac mail (true lub false)");
-            System.out.println("czwarty argument, opcjonalny, szukany tekst, np: Diuna, jesli go nie podasz, program bedzie sprawdzal czy zaszla zmiana strony");
-            Thread.sleep(5000);
-            System.exit(0);
-        }
-    }
 
     private static String connection(String urlString) throws Exception {
-        String pageContent = new String();
+        String pageContent = null;
         try {
             URL url = new URL(urlString);
             URLConnection conn = url.openConnection();
@@ -126,16 +160,23 @@ public class Kino {
             Thread.sleep(5000);
             System.exit(0);
         }
-        return pageContent;
+        return pageContent.toLowerCase().trim().replaceAll("\\s", "");
     }
 
+    private static boolean emptyPageProtection(String tempPage) throws InterruptedException {
+        if (tempPage.isEmpty()) {
+            System.out.println("Pusta strona... Prawdopodobnie zly adres strony...");
+            Thread.sleep(5_000);
+            return true;
+        }
+        return false;
+    }
 
     private static String getTime() {
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         return now.format(formatter);
     }
-
 
     private static void playSound(int repeats) {
         for (int j = 0; j < repeats; j++) {
@@ -154,7 +195,6 @@ public class Kino {
         }
     }
 
-
     private static void search(String tempPage, String text) {
         System.out.println("\u001B[32m" + getTime() + " - szukam tekstu: " + text + "... Dlugosc strony: " + tempPage.length() + "\u001B[0m");
     }
@@ -172,7 +212,6 @@ public class Kino {
         System.out.println("\u001B[31m" + getTime() + text);
         System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" + "\u001B[0m");
     }
-
 
     private static void sendMail(String urlString, String searchedPhrase) {
         playSound(3);
@@ -197,28 +236,26 @@ public class Kino {
                 });
 
         try {
-            // Tworzenie obiektu MimeMessage
             Message message = new MimeMessage(session);
-            // Ustawienie nadawcy
             message.setFrom(new InternetAddress(username));
-            // Ustawienie odbiorcy
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse("dilerus@gmail.com")); // Adres odbiorcy
-            // Ustawienie tematu
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(email)); // Adres odbiorcy
             message.setSubject("Sukces!");
-            // Ustawienie treści wiadomości
-            String txt = new String();
-            txt = txt.concat("Zmiana strony!!!\n");
+            String txt = "Zmiana strony!!!\n";
             txt = txt.concat("Strona: " + urlString + "\n");
             if (searchedPhrase != null) txt = txt.concat("Znaleziono text: " + searchedPhrase);
             message.setText(txt);
 
-            // Wysłanie wiadomości
             Transport.send(message);
-            System.out.println("Email zostal wyslany pomyslnie.");
+            System.out.println("Email na adres " + email + "zostal wyslany pomyslnie.");
 
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Wystąpił błąd podczas wysyłania emaila: " + e.getMessage());
         }
+    }
+
+    public static boolean isValidEmail(String email) {
+        Matcher matcher = Pattern.compile(EMAIL_REGEX).matcher(email);
+        return matcher.matches();
     }
 }
