@@ -44,9 +44,7 @@ public class Kino {
                     if (!tempPage.contains(phrase)) {
                         search(tempPage, phrase);
                     } else {
-                        printSuccess("  -  ZNALEZIONO TEKST: " + phrase + "!!!!");
-                        if (email != null) sendMail(url, phrase);
-                        if (sound == Boolean.TRUE) playSound(10_000);
+                        printSuccess("  -  ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
                         break;
                     }
                 }
@@ -56,9 +54,7 @@ public class Kino {
                 if (tempPage.equals(oldPage)) {
                     searchAndSleep(interwal * 1_000, tempPage);
                 } else {
-                    printSuccess("  -  JEST ZMIANA STRONY!!!!");
-                    if (email != null) sendMail(url, null);
-                    if (sound == Boolean.TRUE) playSound(10_000);
+                    printSuccess("  -  JEST ZMIANA STRONY!!!!", null);
                     break;
                 }
             }
@@ -72,8 +68,9 @@ public class Kino {
         System.out.println("-i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)");
         System.out.println("-f (finish) - ilosc iteracji programu");
         System.out.println("-e (e-mail) - adres email na ktory chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila");
-        System.out.println("-s (sound) - czy program ma nadawac dzwiek w petli, wartosci 'true' lub 'false' (domyslnie: false)");
+        System.out.println("-s (sound) - czy program ma nadawac dzwiek w petli, nie potrzebuje dodatkowego parametru");
         System.out.println("-p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila");
+        System.out.println("Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>");
     }
 
 
@@ -86,7 +83,7 @@ public class Kino {
                 try {
                     interwal = Long.parseLong(args[i + 1]);
                 } catch (Exception e) {
-                    System.out.println("-i parametr musi byc liczba! Ustawiam odswiezanie na domyslne 10s");
+                    System.out.println("\n\u001B[31m-i Parametr interwal musi byc liczba! Ustawiam odswiezanie na domyslne 10s.\u001B[0m");
                     interwal = 10L;
                 }
             }
@@ -94,18 +91,18 @@ public class Kino {
                 try {
                     finish = Long.parseLong(args[i + 1]);
                 } catch (Exception e) {
-                    System.out.println("\n\u001B[31mParametr finish musi byc liczba!\u001B[0m\n");
+                    System.out.println("\n\u001B[31m-f Parametr finish musi byc liczba! Uzyta zostanie wartosc domyslna.\u001B[0m");
                 }
             }
             if (args[i].equals("-e")) {
                 if (isValidEmail(args[i + 1])) {
                     email = args[i + 1];
                 } else {
-                    System.out.println("\n\u001B[31mNieprawidlowy adres email!\u001B[0m\n");
+                    System.out.println("\n\u001B[31m-e Nieprawidlowy adres! Email nie zostanie wyslany.\u001B[0m");
                 }
             }
             if (args[i].equals("-s")) {
-                sound = Boolean.parseBoolean(args[i + 1]);
+                sound = Boolean.TRUE;
             }
             if (args[i].equals("-p")) {
                 phrases = new ArrayList<>();
@@ -124,7 +121,8 @@ public class Kino {
     }
 
     private static void initialText() {
-        String initialTxt = "\nStrona: \u001B[35m" + url + "\u001B[0m\n";
+        String initialTxt = "\nPARAMETRY PROGRAMU:";
+        initialTxt = initialTxt.concat("\nStrona: \u001B[35m" + url + "\u001B[0m\n");
         initialTxt = initialTxt.concat("Czestotliwosc odswiezania: \u001B[35m" + interwal + "s \u001B[0m\n");
         initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + finish + " iteracjach \u001B[0m\n");
         if (email != null) initialTxt = initialTxt.concat("Adres wysylki emaila: \u001B[35m" + email + "\u001B[0m\n");
@@ -208,9 +206,11 @@ public class Kino {
         }
     }
 
-    private static void printSuccess(String text) {
+    private static void printSuccess(String text, String phrase) {
         System.out.println("\u001B[31m" + getTime() + text);
         System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" + "\u001B[0m");
+        if (email != null) sendMail(url, phrase);
+        if (sound == Boolean.TRUE) playSound(10_000);
     }
 
     private static void sendMail(String urlString, String searchedPhrase) {
@@ -246,7 +246,7 @@ public class Kino {
             message.setText(txt);
 
             Transport.send(message);
-            System.out.println("Email na adres " + email + "zostal wyslany pomyslnie.");
+            System.out.println("Email na adres " + email + " zostal wyslany pomyslnie.");
 
         } catch (Exception e) {
             e.printStackTrace();
