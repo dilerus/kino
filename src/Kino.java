@@ -63,9 +63,6 @@ public class Kino {
     }
 
     private static void helpText() {
-//        for (int i = 0; i < 256; i++) {
-//            System.out.println(i + " -  \u001B["+i+"m   TEST TEST   \u001B[0m");
-//        }
         System.out.println("Parametry programu:");
         System.out.println("-u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)");
         System.out.println("-i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)");
@@ -216,13 +213,11 @@ public class Kino {
 
     private static void sendMail(String urlString, String searchedPhrase) {
         if (sound) playSound(3);
-        // Dane do serwera pocztowego oraz logowania
         String host = "smtp.gmail.com"; // Tutaj podaj adres serwera SMTP
         String port = "587"; // Port serwera SMTP
         String username = "dilerus.robot"; // Adres e-mail z którego chcesz wysłać wiadomość
         String password = "qjbd zxst lotm ajbk"; // Hasło do konta e-mail
 
-        // Ustawienia właściwości
         Properties properties = new Properties();
         properties.put("mail.smtp.auth", "true");
         properties.put("mail.smtp.starttls.enable", "true");
@@ -235,11 +230,10 @@ public class Kino {
                         return new javax.mail.PasswordAuthentication(username, password);
                     }
                 });
-
         try {
             Message message = new MimeMessage(session);
             message.setFrom(new InternetAddress(username));
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(email)); // Adres odbiorcy
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(email));
             message.setSubject("Sukces!");
             String txt = "Zmiana strony!!!\n";
             txt = txt.concat("Strona: " + urlString + "\n");
@@ -251,7 +245,7 @@ public class Kino {
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("Wystąpił błąd podczas wysyłania emaila: " + e.getMessage());
+            System.out.println("Wystąpil błąd podczas wysyłania emaila: " + e.getMessage());
         }
     }
 
