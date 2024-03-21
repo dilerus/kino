@@ -77,7 +77,7 @@ public class Kino {
     }
 
 
-    private static void argsParsing(String[] args){
+    private static void argsParsing(String[] args) {
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-u")) {
                 url = args[i + 1];
@@ -118,7 +118,6 @@ public class Kino {
                         break;
                     }
                 }
-
             }
         }
     }
