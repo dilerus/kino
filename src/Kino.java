@@ -20,10 +20,10 @@ import java.util.regex.Pattern;
 
 public class Kino {
     private static String url = "https://trojmiasto.pl";
-    private static Long interwal = 10L;
-    private static Long finish = 1_000_000L;
+    private static long interwal = 10L;
+    private static long finish = 1_000_000L;
     private static String email;
-    private static Boolean sound = Boolean.FALSE;
+    private static boolean sound;
     private static List<String> phrases;
     private static final String EMAIL_REGEX =
             "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
@@ -105,7 +105,7 @@ public class Kino {
                 }
             }
             if (args[i].equals("-s")) {
-                sound = Boolean.TRUE;
+                sound = true;
             }
             if (args[i].equals("-p")) {
                 phrases = new ArrayList<>();
