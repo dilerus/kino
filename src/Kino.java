@@ -7,6 +7,7 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import java.io.*;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.time.*;
@@ -19,19 +20,37 @@ import java.util.regex.Pattern;
 
 
 public class Kino {
-    private static String url = "https://trojmiasto.pl";
+    private static URL url;
+
+    static {
+        try {
+            url = new URL("https://trojmiasto.pl");
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static long interwal = 10L;
     private static long finish = 1_000_000L;
     private static String email;
     private static boolean sound;
-    private static List<String> phrases;
+    private static final List<String> phrases = new ArrayList<>();
+    private static DayOfWeek day;
+    private static LocalTime hour;
+    private static final List<String> errorList = new ArrayList<>();
     private static final String EMAIL_REGEX =
             "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
                     + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
 
     public static void main(String[] args) throws Exception {
-        helpText();
+        if (args != null && args.length == 1 && args[0].equals("--help")) {
+            fullHelpText();
+        } else {
+            helpText();
+        }
+
         argsParsing(args);
+        printErrors();
         initialText();
 
         String oldPage = connection(url);
@@ -39,13 +58,12 @@ public class Kino {
             String tempPage = connection(url);
             if (emptyPageProtection(tempPage)) continue;
 
-            if (phrases != null) {
+            if (!phrases.isEmpty()) {
                 for (String phrase : phrases) {
                     if (!tempPage.contains(phrase)) {
                         search(tempPage, phrase);
                     } else {
                         printSuccess(" - ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
-                        break;
                     }
                 }
                 System.out.println();
@@ -55,15 +73,27 @@ public class Kino {
                     searchAndSleep(interwal * 1_000, tempPage);
                 } else {
                     printSuccess(" - JEST ZMIANA STRONY!!!!", null);
-                    break;
                 }
             }
             finish--;
         }
     }
 
+    private static void printErrors() {
+        if (!errorList.isEmpty()) {
+            System.out.println();
+            for (String error : errorList) {
+                System.out.println(error);
+            }
+        }
+    }
+
     private static void helpText() {
-        System.out.println("Parametry programu:");
+        System.out.println("Wpisz --help aby uzyskac pomoc.");
+    }
+
+    private static void fullHelpText() {
+        System.out.println("Dostepne parametry:");
         System.out.println("-u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)");
         System.out.println("-i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)");
         System.out.println("-f (finish) - ilosc iteracji programu");
@@ -76,91 +106,96 @@ public class Kino {
     }
 
 
-    private static void argsParsing(String[] args) throws InterruptedException {
+    private static void argsParsing(String[] args) {
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "-u":
-                    url = args[i + 1];
+                    try {
+                        url = new URL(args[i + 1]);
+                    } catch (MalformedURLException e) {
+                        errorList.add("\n\u001B[31mNieprawidlowy parametr URL, zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
+                    }
                     break;
                 case "-i":
                     try {
                         interwal = Long.parseLong(args[i + 1]);
                     } catch (Exception e) {
-                        System.out.println("\n\u001B[31m-i Parametr interwal musi byc liczba! Ustawiam odswiezanie na domyslne 10s.\u001B[0m");
-                        interwal = 10L;
+                        errorList.add("\n\u001B[31mNieprawidlowy parametr interwal, zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
                     }
                     break;
                 case "-f":
                     try {
                         finish = Long.parseLong(args[i + 1]);
                     } catch (Exception e) {
-                        System.out.println("\n\u001B[31m-f Parametr finish musi byc liczba! Uzyta zostanie wartosc domyslna.\u001B[0m");
+                        errorList.add("\n\u001B[31mNieprawidlowy parametr finish, zostanie zignorowany! Uzyta zostanie wartosc domyslna.\u001B[0m");
                     }
                     break;
                 case "-e":
                     if (isValidEmail(args[i + 1])) {
                         email = args[i + 1];
                     } else {
-                        System.out.println("\n\u001B[31m-e Nieprawidlowy adres! Email nie zostanie wyslany.\u001B[0m");
+                        errorList.add("\u001B[31mNieprawidlowy parametr email, zostanie zignorowany!\u001B[0m");
                     }
                     break;
                 case "-s":
                     sound = true;
                     break;
                 case "-p":
-                    phrases = new ArrayList<>();
                     for (int j = i + 1; j < args.length; j++) {
                         String phrase = args[j].toLowerCase().trim().replaceAll("\\s", "");
-                        if (!phrase.equals("-u") && !phrase.equals("-i") && !phrase.equals("-f") && !phrase.equals("-e") && !phrase.equals("-s") && !phrase.equals("-p")) {
+                        if (!phrase.equals("-u") && !phrase.equals("-i") && !phrase.equals("-f") && !phrase.equals("-e") && !phrase.equals("-s") && !phrase.equals("-p") && !phrase.equals("-h") && !phrase.equals("-d")) {
                             phrases.add(phrase);
-                            i++;
                         } else {
                             break;
                         }
                     }
                     break;
                 case "-d":
-                    DayOfWeek day;
                     try {
                         day = DayOfWeek.valueOf(args[i + 1]);
                     } catch (IllegalArgumentException e) {
-                        System.out.println("\n\u001B[31mNieprawidlowy parametr day, zostanie zignorowany!\u001B[0m");
-                        break;
-                    }
-                    DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
-                    if (day == DayOfWeek.TUESDAY) {
-                        System.out.println("\n\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "!\u001B[0m");
-                        Thread.sleep(60_000);
-                        System.exit(0);
+                        errorList.add("\u001B[31mNieprawidlowy parametr day, zostanie zignorowany!\u001B[0m");
                     }
                     break;
                 case "-h":
-                    LocalTime currentTime = LocalTime.now();
-                    LocalTime hour;
                     try {
                         hour = LocalTime.of(Integer.parseInt(args[i + 1]), 0);
                     } catch (NumberFormatException e) {
-                        System.out.println("\n\u001B[31mNieprawidlowy parametr hour, zostanie zignorowany!\u001B[0m");
-                        break;
-                    }
-                    if (!currentTime.isAfter(hour)) {
-                        long secondsDifference = Duration.between(currentTime, hour).abs().getSeconds();
-                        System.out.println("\n\u001B[31mNie jest po godzinie " + hour + ", czekam " + secondsDifference / 60 + " minut i wlaczam program.\u001B[0m");
-                        Thread.sleep(secondsDifference * 1000);
+                        errorList.add("\u001B[31mNieprawidlowy parametr hour, zostanie zignorowany!\u001B[0m");
                     }
                     break;
             }
         }
     }
 
-    private static void initialText() {
+    private static void checkHour() throws InterruptedException {
+        LocalTime currentTime = LocalTime.now();
+        if (!currentTime.isAfter(hour)) {
+            long secondsDifference = Duration.between(currentTime, hour).abs().getSeconds();
+            System.out.println("\u001B[31mNie jest po godzinie " + hour + ", czekam " + secondsDifference / 60 + " minut i wlaczam program.\u001B[0m");
+            Thread.sleep(secondsDifference * 1000);
+        }
+    }
+
+    private static void checkDay() throws InterruptedException {
+        DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
+        if (day == DayOfWeek.TUESDAY) {
+            System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "!\u001B[0m");
+            Thread.sleep(60_000);
+            System.exit(0);
+        }
+    }
+
+    private static void initialText() throws InterruptedException {
         String initialTxt = "\nPARAMETRY PROGRAMU:";
         initialTxt = initialTxt.concat("\nStrona: \u001B[35m" + url + "\u001B[0m\n");
         initialTxt = initialTxt.concat("Czestotliwosc odswiezania: \u001B[35m" + interwal + "s \u001B[0m\n");
         initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + finish + " iteracjach \u001B[0m\n");
         if (email != null) initialTxt = initialTxt.concat("Adres wysylki emaila: \u001B[35m" + email + "\u001B[0m\n");
         initialTxt = initialTxt.concat("Dzwiek: \u001B[35m" + sound + "\u001B[0m\n");
-        if (phrases != null) {
+        if (day != null) initialTxt = initialTxt.concat("Dzien: \u001B[35m" + day + "\u001B[0m\n");
+        if (hour != null) initialTxt = initialTxt.concat("Godzina: \u001B[35m" + hour + "\u001B[0m\n");
+        if (!phrases.isEmpty()) {
             initialTxt = initialTxt.concat("Szukanie fraz:\n\u001B[35m");
             for (String phrase : phrases) {
                 initialTxt = initialTxt.concat(phrase).concat("\n");
@@ -168,13 +203,14 @@ public class Kino {
             initialTxt = initialTxt.concat("\u001B[0m\n");
         }
         System.out.println(initialTxt);
+
+        if (day != null) checkDay();
+        if (hour != null) checkHour();
     }
 
-
-    private static String connection(String urlString) throws Exception {
+    private static String connection(URL url) throws Exception {
         String pageContent = null;
         try {
-            URL url = new URL(urlString);
             URLConnection conn = url.openConnection();
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder content = new StringBuilder();
@@ -239,18 +275,20 @@ public class Kino {
         }
     }
 
-    private static void printSuccess(String text, String phrase) {
+    private static void printSuccess(String text, String phrase) throws InterruptedException {
         System.out.println("\u001B[01;41m" + getTime() + text + "\n\u001B[0m");
         if (email != null) sendMail(url, phrase);
         if (sound) playSound(10_000);
+        Thread.sleep(3_600_000);
+        System.exit(0);
     }
 
-    private static void sendMail(String urlString, String searchedPhrase) {
+    private static void sendMail(URL urlString, String searchedPhrase) {
         if (sound) playSound(3);
-        String host = "smtp.gmail.com"; // Tutaj podaj adres serwera SMTP
-        String port = "587"; // Port serwera SMTP
-        String username = "dilerus.robot"; // Adres e-mail z którego chcesz wysłać wiadomość
-        String password = "qjbd zxst lotm ajbk"; // Hasło do konta e-mail
+        String host = "smtp.gmail.com";
+        String port = "587";
+        String username = "dilerus.robot";
+        String password = "qjbd zxst lotm ajbk";
 
         Properties properties = new Properties();
         properties.put("mail.smtp.auth", "true");
