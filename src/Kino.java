@@ -9,7 +9,7 @@ import javax.sound.sampled.Clip;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,51 +70,85 @@ public class Kino {
         System.out.println("-e (e-mail) - adres email na ktory chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila");
         System.out.println("-s (sound) - czy program ma nadawac dzwiek w petli, nie potrzebuje dodatkowego parametru");
         System.out.println("-p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila");
+        System.out.println("-d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)");
+        System.out.println("-h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie, i poczeka az bedzie po tej godzinie");
         System.out.println("Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>");
     }
 
 
-    private static void argsParsing(String[] args) {
+    private static void argsParsing(String[] args) throws InterruptedException {
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("-u")) {
-                url = args[i + 1];
-            }
-            if (args[i].equals("-i")) {
-                try {
-                    interwal = Long.parseLong(args[i + 1]);
-                } catch (Exception e) {
-                    System.out.println("\n\u001B[31m-i Parametr interwal musi byc liczba! Ustawiam odswiezanie na domyslne 10s.\u001B[0m");
-                    interwal = 10L;
-                }
-            }
-            if (args[i].equals("-f")) {
-                try {
-                    finish = Long.parseLong(args[i + 1]);
-                } catch (Exception e) {
-                    System.out.println("\n\u001B[31m-f Parametr finish musi byc liczba! Uzyta zostanie wartosc domyslna.\u001B[0m");
-                }
-            }
-            if (args[i].equals("-e")) {
-                if (isValidEmail(args[i + 1])) {
-                    email = args[i + 1];
-                } else {
-                    System.out.println("\n\u001B[31m-e Nieprawidlowy adres! Email nie zostanie wyslany.\u001B[0m");
-                }
-            }
-            if (args[i].equals("-s")) {
-                sound = true;
-            }
-            if (args[i].equals("-p")) {
-                phrases = new ArrayList<>();
-                for (int j = i + 1; j < args.length; j++) {
-                    String phrase = args[j].toLowerCase().trim().replaceAll("\\s", "");
-                    if (!phrase.equals("-u") && !phrase.equals("-i") && !phrase.equals("-f") && !phrase.equals("-e") && !phrase.equals("-s") && !phrase.equals("-p")) {
-                        phrases.add(phrase);
-                        i++;
+            switch (args[i]) {
+                case "-u":
+                    url = args[i + 1];
+                    break;
+                case "-i":
+                    try {
+                        interwal = Long.parseLong(args[i + 1]);
+                    } catch (Exception e) {
+                        System.out.println("\n\u001B[31m-i Parametr interwal musi byc liczba! Ustawiam odswiezanie na domyslne 10s.\u001B[0m");
+                        interwal = 10L;
+                    }
+                    break;
+                case "-f":
+                    try {
+                        finish = Long.parseLong(args[i + 1]);
+                    } catch (Exception e) {
+                        System.out.println("\n\u001B[31m-f Parametr finish musi byc liczba! Uzyta zostanie wartosc domyslna.\u001B[0m");
+                    }
+                    break;
+                case "-e":
+                    if (isValidEmail(args[i + 1])) {
+                        email = args[i + 1];
                     } else {
+                        System.out.println("\n\u001B[31m-e Nieprawidlowy adres! Email nie zostanie wyslany.\u001B[0m");
+                    }
+                    break;
+                case "-s":
+                    sound = true;
+                    break;
+                case "-p":
+                    phrases = new ArrayList<>();
+                    for (int j = i + 1; j < args.length; j++) {
+                        String phrase = args[j].toLowerCase().trim().replaceAll("\\s", "");
+                        if (!phrase.equals("-u") && !phrase.equals("-i") && !phrase.equals("-f") && !phrase.equals("-e") && !phrase.equals("-s") && !phrase.equals("-p")) {
+                            phrases.add(phrase);
+                            i++;
+                        } else {
+                            break;
+                        }
+                    }
+                    break;
+                case "-d":
+                    DayOfWeek day;
+                    try {
+                        day = DayOfWeek.valueOf(args[i + 1]);
+                    } catch (IllegalArgumentException e) {
+                        System.out.println("\n\u001B[31mNieprawidlowy parametr day, zostanie zignorowany!\u001B[0m");
                         break;
                     }
-                }
+                    DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
+                    if (day == DayOfWeek.TUESDAY) {
+                        System.out.println("\n\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "!\u001B[0m");
+                        Thread.sleep(60_000);
+                        System.exit(0);
+                    }
+                    break;
+                case "-h":
+                    LocalTime currentTime = LocalTime.now();
+                    LocalTime hour;
+                    try {
+                        hour = LocalTime.of(Integer.parseInt(args[i + 1]), 0);
+                    } catch (NumberFormatException e) {
+                        System.out.println("\n\u001B[31mNieprawidlowy parametr hour, zostanie zignorowany!\u001B[0m");
+                        break;
+                    }
+                    if (!currentTime.isAfter(hour)) {
+                        long secondsDifference = Duration.between(currentTime, hour).abs().getSeconds();
+                        System.out.println("\n\u001B[31mNie jest po godzinie " + hour + ", czekam " + secondsDifference / 60 + " minut i wlaczam program.\u001B[0m");
+                        Thread.sleep(secondsDifference * 1000);
+                    }
+                    break;
             }
         }
     }
@@ -184,7 +218,7 @@ public class Kino {
                 Clip clip = AudioSystem.getClip();
                 clip.open(audioInputStream);
                 clip.start();
-                Thread.sleep(clip.getMicrosecondLength() / 900);
+                Thread.sleep(clip.getMicrosecondLength() / 950);
                 clip.close();
             } catch (Exception ex) {
                 ex.printStackTrace();

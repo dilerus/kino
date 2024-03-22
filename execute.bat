@@ -9,6 +9,8 @@ java -jar Kino4.jar -u https://www.muzyczny.org/pl/repertuar.html -i 1800 -s -e 
 :: -e (e-mail) - adres email na ktory chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila
 :: -s (sound) - czy program ma nadawac dzwiek w petli, nie potrzebuje dodatkowego parametru
 :: -p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila
+:: -d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
+:: -h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie i poczeka az bedzie po tej godzinie
 :: Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>
 
 
