@@ -10,6 +10,7 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.DecimalFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -33,7 +34,7 @@ public class Kino {
 
     private static long interwal = 10L;
     private static long finish = 1_000_000L;
-    private static String email;
+    private static List<String> emails = new ArrayList<>();
     private static boolean sound;
     private static final List<String> phrases = new ArrayList<>();
     private static DayOfWeek day;
@@ -46,11 +47,10 @@ public class Kino {
 
     public static void main(String[] args) throws Exception {
         if (args != null && args.length == 1 && args[0].equals("--help")) {
-            fullHelpText();
+            System.out.println(fullHelpText());
         } else {
-            helpText();
+            System.out.println(helpText());
         }
-
         argsParsing(args);
         printErrors();
         initialText();
@@ -59,25 +59,28 @@ public class Kino {
         while (finish > 0) {
             String tempPage = connection(url);
             if (emptyPageProtection(tempPage)) continue;
+            check(tempPage, oldPage);
+            finish--;
+        }
+    }
 
-            if (!phrases.isEmpty()) {
-                for (String phrase : phrases) {
-                    if (!tempPage.contains(phrase)) {
-                        search(tempPage, phrase);
-                    } else {
-                        printSuccess(" - ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
-                    }
-                }
-                System.out.println();
-                Thread.sleep(interwal * 1_000);
-            } else {
-                if (tempPage.equals(oldPage)) {
-                    searchAndSleep(interwal * 1_000, tempPage);
+    private static void check(String tempPage, String oldPage) throws InterruptedException {
+        if (!phrases.isEmpty()) {
+            for (String phrase : phrases) {
+                if (!tempPage.contains(phrase)) {
+                    search(tempPage, phrase);
                 } else {
-                    printSuccess(" - JEST ZMIANA STRONY!!!!", null);
+                    printSuccess(" - ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
                 }
             }
-            finish--;
+            System.out.println();
+            Thread.sleep(interwal * 1_000);
+        } else {
+            if (tempPage.equals(oldPage)) {
+                searchAndSleep(interwal * 1_000, tempPage);
+            } else {
+                printSuccess(" - JEST ZMIANA STRONY!!!!", null);
+            }
         }
     }
 
@@ -90,22 +93,23 @@ public class Kino {
         }
     }
 
-    private static void helpText() {
-        System.out.println("Wpisz --help aby uzyskac pomoc.");
+    private static String helpText() {
+        return "Wpisz --help aby uzyskac pomoc.";
     }
 
-    private static void fullHelpText() {
-        System.out.println("Dostepne parametry:");
-        System.out.println("-u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)");
-        System.out.println("-i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)");
-        System.out.println("-f (finish) - ilosc iteracji programu");
-        System.out.println("-e (e-mail) - adres email na ktory chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila");
-        System.out.println("-s (sound) - czy program ma nadawac dzwiek w petli, nie potrzebuje dodatkowego parametru");
-        System.out.println("-p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila");
-        System.out.println("-d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)");
-        System.out.println("-h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie, i poczeka az bedzie po tej godzinie");
-        System.out.println("-date (date) - program bedzie sprawdzal czy jest juz po podanej dacie (dd-MM-yyyy), jak nie to zamknie program");
-        System.out.println("Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>");
+    private static String fullHelpText() {
+        return """
+                Dostepne parametry:
+                -u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)
+                -i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)
+                -f (finish) - ilosc iteracji programu
+                -e (e-mail) - adres/y email na ktora chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila
+                -s (sound) - czy program ma nadawac dzwiek w petli, nie potrzebuje dodatkowego parametru
+                -date (date) - program bedzie sprawdzal czy jest juz po podanej dacie (dd-MM-yyyy), jak nie to zamknie program
+                -d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
+                -h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie, i poczeka az bedzie po tej godzinie
+                -p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila
+                Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
 
 
@@ -134,11 +138,19 @@ public class Kino {
                     }
                     break;
                 case "-e":
-                    if (isValidEmail(args[i + 1])) {
-                        email = args[i + 1];
-                    } else {
-                        errorList.add("\u001B[31mNieprawidlowy parametr email, zostanie zignorowany!\u001B[0m");
+                    for (int j = i + 1; j < args.length; j++) {
+                        String email = args[j];
+                        if (!email.equals("-u") && !email.equals("-i") && !email.equals("-f") && !email.equals("-e")
+                                && !email.equals("-s") && !email.equals("-p") && !email.equals("-h")
+                                && !email.equals("-d") && !email.equals("-date")) {
+                            if (isValidEmail(args[j])) {
+                                emails.add(email);
+                            } else {
+                                errorList.add("\u001B[31mNieprawidlowy parametr email, zostanie zignorowany!\u001B[0m");
+                            }
+                        }
                     }
+
                     break;
                 case "-s":
                     sound = true;
@@ -146,7 +158,9 @@ public class Kino {
                 case "-p":
                     for (int j = i + 1; j < args.length; j++) {
                         String phrase = args[j].toLowerCase().trim().replaceAll("\\s", "");
-                        if (!phrase.equals("-u") && !phrase.equals("-i") && !phrase.equals("-f") && !phrase.equals("-e") && !phrase.equals("-s") && !phrase.equals("-p") && !phrase.equals("-h") && !phrase.equals("-d")) {
+                        if (!phrase.equals("-u") && !phrase.equals("-i") && !phrase.equals("-f") && !phrase.equals("-e")
+                                && !phrase.equals("-s") && !phrase.equals("-p") && !phrase.equals("-h")
+                                && !phrase.equals("-d") && !phrase.equals("-date")) {
                             phrases.add(phrase);
                         } else {
                             break;
@@ -192,7 +206,7 @@ public class Kino {
         DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
         if (day == DayOfWeek.TUESDAY) {
             System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "! Zamykam program.\u001B[0m");
-            Thread.sleep(60_000);
+            Thread.sleep(30_000);
             System.exit(0);
         }
     }
@@ -201,17 +215,25 @@ public class Kino {
         LocalDate currentDate = LocalDate.now();
         if (currentDate.isBefore(date)) {
             System.out.println("\u001B[31mDzis nie jest " + date + " lub pozniej, dzis jest dopiero " + currentDate + "! Zamykam program.\u001B[0m");
-            Thread.sleep(60_000);
+            Thread.sleep(30_000);
             System.exit(0);
         }
     }
 
     private static void initialText() throws InterruptedException {
+        DecimalFormat decimalFormat = new DecimalFormat("#,###");
+        String formattedFinish = decimalFormat.format(finish);
         String initialTxt = "\nPARAMETRY PROGRAMU:";
         initialTxt = initialTxt.concat("\nStrona: \u001B[35m" + url + "\u001B[0m\n");
         initialTxt = initialTxt.concat("Czestotliwosc odswiezania: \u001B[35m" + interwal + "s \u001B[0m\n");
-        initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + finish + " iteracjach \u001B[0m\n");
-        if (email != null) initialTxt = initialTxt.concat("Adres wysylki emaila: \u001B[35m" + email + "\u001B[0m\n");
+        initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n");
+        if (!emails.isEmpty()) {
+            initialTxt = initialTxt.concat("Adres/y wysylki emaila: \u001B[35m");
+            for (String email : emails) {
+                initialTxt = initialTxt.concat(email + ", ");
+            }
+            initialTxt = initialTxt.substring(0, initialTxt.length() - 2).concat("\u001B[0m\n");
+        }
         initialTxt = initialTxt.concat("Dzwiek: \u001B[35m" + sound + "\u001B[0m\n");
         if (date != null) initialTxt = initialTxt.concat("Po dacie: \u001B[35m" + date + "\u001B[0m\n");
         if (day != null) initialTxt = initialTxt.concat("Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n");
@@ -246,7 +268,7 @@ public class Kino {
             pageContent = content.toString();
         } catch (IOException e) {
             System.out.println("Nie udalo sie polaczyc z podanym adresem!");
-            Thread.sleep(5000);
+            Thread.sleep(5_000);
             System.exit(0);
         }
         return pageContent.toLowerCase().trim().replaceAll("\\s", "");
@@ -299,13 +321,17 @@ public class Kino {
 
     private static void printSuccess(String text, String phrase) throws InterruptedException {
         System.out.println("\u001B[01;41m" + getTime() + text + "\n\u001B[0m");
-        if (email != null) sendMail(url, phrase);
+        if (!emails.isEmpty()) {
+            for (String email : emails) {
+                sendMail(email, url, phrase);
+            }
+        }
         if (sound) playSound(10_000);
         Thread.sleep(3_600_000);
         System.exit(0);
     }
 
-    private static void sendMail(URL urlString, String searchedPhrase) {
+    private static void sendMail(String email, URL urlString, String searchedPhrase) {
         if (sound) playSound(3);
         String host = "smtp.gmail.com";
         String port = "587";
