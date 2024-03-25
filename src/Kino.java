@@ -12,6 +12,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -37,6 +38,7 @@ public class Kino {
     private static final List<String> phrases = new ArrayList<>();
     private static DayOfWeek day;
     private static LocalTime hour;
+    private static LocalDate date;
     private static final List<String> errorList = new ArrayList<>();
     private static final String EMAIL_REGEX =
             "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
@@ -102,6 +104,7 @@ public class Kino {
         System.out.println("-p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila");
         System.out.println("-d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)");
         System.out.println("-h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie, i poczeka az bedzie po tej godzinie");
+        System.out.println("-date (date) - program bedzie sprawdzal czy jest juz po podanej dacie (dd-MM-yyyy), jak nie to zamknie program");
         System.out.println("Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>");
     }
 
@@ -164,6 +167,14 @@ public class Kino {
                         errorList.add("\u001B[31mNieprawidlowy parametr hour, zostanie zignorowany!\u001B[0m");
                     }
                     break;
+                case "-date":
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                    try {
+                        date = LocalDate.parse(args[i + 1], formatter);
+                    } catch (DateTimeParseException e) {
+                        System.out.println("\u001B[31mNieprawidlowy parametr date, zostanie zignorowany!\u001B[0m");
+                    }
+                    break;
             }
         }
     }
@@ -172,7 +183,7 @@ public class Kino {
         LocalTime currentTime = LocalTime.now();
         if (!currentTime.isAfter(hour)) {
             long secondsDifference = Duration.between(currentTime, hour).abs().getSeconds();
-            System.out.println("\u001B[31mNie jest po godzinie " + hour + ", czekam " + secondsDifference / 60 + " minut i wlaczam program.\u001B[0m");
+            System.out.println("\u001B[31mNie jest po godzinie " + hour + ", usypiam program na " + secondsDifference / 60 + " minut.\u001B[0m");
             Thread.sleep(secondsDifference * 1000);
         }
     }
@@ -180,7 +191,16 @@ public class Kino {
     private static void checkDay() throws InterruptedException {
         DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
         if (day == DayOfWeek.TUESDAY) {
-            System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "!\u001B[0m");
+            System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "! Zamykam program.\u001B[0m");
+            Thread.sleep(60_000);
+            System.exit(0);
+        }
+    }
+
+    private static void checkDate() throws InterruptedException {
+        LocalDate currentDate = LocalDate.now();
+        if (currentDate.isBefore(date)) {
+            System.out.println("\u001B[31mDzis nie jest " + date + " lub pozniej, dzis jest dopiero " + currentDate + "! Zamykam program.\u001B[0m");
             Thread.sleep(60_000);
             System.exit(0);
         }
@@ -204,6 +224,7 @@ public class Kino {
         }
         System.out.println(initialTxt);
 
+        if (date != null) checkDate();
         if (day != null) checkDay();
         if (hour != null) checkHour();
     }
