@@ -34,8 +34,9 @@ public class PageChange {
 
     private static long interwal = 10L;
     private static long finish = 1_000_000L;
-    private static List<String> emails = new ArrayList<>();
+    private static final List<String> emails = new ArrayList<>();
     private static boolean sound;
+    private static boolean negation;
     private static final List<String> phrases = new ArrayList<>();
     private static DayOfWeek day;
     private static LocalTime hour;
@@ -66,15 +67,27 @@ public class PageChange {
 
     private static void check(String tempPage, String oldPage) throws InterruptedException {
         if (!phrases.isEmpty()) {
-            for (String phrase : phrases) {
-                if (!tempPage.contains(phrase)) {
-                    search(tempPage, phrase);
-                } else {
-                    printSuccess(" - ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
+            if (negation) {
+                for (String phrase : phrases) {
+                    if (tempPage.contains(phrase)) {
+                        searchNegation(tempPage, phrase);
+                    } else {
+                        printSuccess(" - NIE ZNALEZIONO TEKSTU: " + phrase + "!!!!", phrase);
+                    }
                 }
+                System.out.println();
+                Thread.sleep(interwal * 1_000);
+            } else {
+                for (String phrase : phrases) {
+                    if (!tempPage.contains(phrase)) {
+                        search(tempPage, phrase);
+                    } else {
+                        printSuccess(" - ZNALEZIONO TEKST: " + phrase + "!!!!", phrase);
+                    }
+                }
+                System.out.println();
+                Thread.sleep(interwal * 1_000);
             }
-            System.out.println();
-            Thread.sleep(interwal * 1_000);
         } else {
             if (tempPage.equals(oldPage)) {
                 searchAndSleep(interwal * 1_000, tempPage);
@@ -109,6 +122,7 @@ public class PageChange {
                 -d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
                 -h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie, i poczeka az bedzie po tej godzinie
                 -p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila
+                -n (negacja) - gdy ustawiona, program bedzie czekal az podane frazy znikna ze strony, nie potrzebuje dodatkowego parametru
                 Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
 
@@ -156,6 +170,9 @@ public class PageChange {
                     break;
                 case "-s":
                     sound = true;
+                    break;
+                case "-n":
+                    negation = true;
                     break;
                 case "-p":
                     for (int j = i + 1; j < args.length; j++) {
@@ -240,6 +257,7 @@ public class PageChange {
         if (date != null) initialTxt = initialTxt.concat("Po dacie: \u001B[35m" + date + "\u001B[0m\n");
         if (day != null) initialTxt = initialTxt.concat("Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n");
         if (hour != null) initialTxt = initialTxt.concat("Godzina: \u001B[35m" + hour + "\u001B[0m\n");
+        if (negation) initialTxt = initialTxt.concat("Negacja: \u001B[35m" + negation + "\u001B[0m\n");
         if (!phrases.isEmpty()) {
             initialTxt = initialTxt.concat("Szukanie fraz:\n\u001B[35m");
             for (String phrase : phrases) {
@@ -247,6 +265,7 @@ public class PageChange {
             }
             initialTxt = initialTxt.concat("\u001B[0m\n");
         }
+
         System.out.println(initialTxt);
 
         if (date != null) checkDate();
@@ -312,6 +331,10 @@ public class PageChange {
         System.out.println("\u001B[32m" + getTime() + " - szukam tekstu: " + text + "... Dlugosc strony: " + tempPage.length() + "\u001B[0m");
     }
 
+    private static void searchNegation(String tempPage, String text) {
+        System.out.println("\u001B[32m" + getTime() + " - szukam braku tekstu: " + text + "... Dlugosc strony: " + tempPage.length() + "\u001B[0m");
+    }
+
     private static void searchAndSleep(Long millis, String tempPage) {
         try {
             System.out.println("\u001B[32m" + getTime() + " - sprawdzam czy podana strona sie zmienila... Dlugosc strony: " + tempPage.length() + "\u001B[0m");
@@ -359,7 +382,10 @@ public class PageChange {
             message.setSubject("Sukces!");
             String txt = "Zmiana strony!!!\n";
             txt = txt.concat("Strona: " + urlString + "\n");
-            if (searchedPhrase != null) txt = txt.concat("Znaleziono text: " + searchedPhrase);
+            if (searchedPhrase != null) {
+                if (negation) txt = txt.concat("Nie znaleziono textu: " + searchedPhrase);
+                else txt = txt.concat("Znaleziono text: " + searchedPhrase);
+            }
             message.setText(txt);
 
             Transport.send(message);
