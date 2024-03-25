@@ -21,7 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-public class Kino {
+public class PageChange {
     private static URL url;
 
     static {
@@ -103,7 +103,7 @@ public class Kino {
                 -u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)
                 -i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)
                 -f (finish) - ilosc iteracji programu
-                -e (e-mail) - adres/y email na ktora chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila
+                -e (e-mail) - adres/y email na ktory chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila
                 -s (sound) - czy program ma nadawac dzwiek w petli, nie potrzebuje dodatkowego parametru
                 -date (date) - program bedzie sprawdzal czy jest juz po podanej dacie (dd-MM-yyyy), jak nie to zamknie program
                 -d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
@@ -148,6 +148,8 @@ public class Kino {
                             } else {
                                 errorList.add("\u001B[31mNieprawidlowy parametr email, zostanie zignorowany!\u001B[0m");
                             }
+                        } else {
+                            break;
                         }
                     }
 
@@ -292,7 +294,7 @@ public class Kino {
     private static void playSound(int repeats) {
         for (int j = 0; j < repeats; j++) {
             try {
-                InputStream inputStream = Kino.class.getResourceAsStream("/resources/tada.wav");
+                InputStream inputStream = PageChange.class.getResourceAsStream("/resources/tada.wav");
                 BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
                 AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(bufferedInputStream);
                 Clip clip = AudioSystem.getClip();

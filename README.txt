@@ -1,8 +1,8 @@
 Parametry programu:
 -u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)
--i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10s)
--f (finish) - ilosc iteracji programu (domyslnie: 1.000.000)
--e (e-mail) - adres email na ktory chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila
+-i (interwal) - czas miedzy odpytaniami strony, w sekundach (domyslnie: 10)
+-f (finish) - ilosc iteracji programu (domyslnie: 1 000 000)
+-e (e-mail) - adres/y email na ktora chcemy otrzymac informacje o sukcesie, domyslnie: nie wysyla maila
 -s (sound) - czy program ma nadawac dzwiek w petli, nie potrzebuje dodatkowego parametru
 -p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila
 -d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
