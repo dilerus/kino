@@ -213,7 +213,8 @@ public class Kino {
         initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + finish + " iteracjach \u001B[0m\n");
         if (email != null) initialTxt = initialTxt.concat("Adres wysylki emaila: \u001B[35m" + email + "\u001B[0m\n");
         initialTxt = initialTxt.concat("Dzwiek: \u001B[35m" + sound + "\u001B[0m\n");
-        if (day != null) initialTxt = initialTxt.concat("Dzien: \u001B[35m" + day + "\u001B[0m\n");
+        if (date != null) initialTxt = initialTxt.concat("Po dacie: \u001B[35m" + date + "\u001B[0m\n");
+        if (day != null) initialTxt = initialTxt.concat("Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n");
         if (hour != null) initialTxt = initialTxt.concat("Godzina: \u001B[35m" + hour + "\u001B[0m\n");
         if (!phrases.isEmpty()) {
             initialTxt = initialTxt.concat("Szukanie fraz:\n\u001B[35m");
