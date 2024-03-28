@@ -57,11 +57,23 @@ public class PageChange {
         initialText();
 
         String oldPage = connection(url);
+        InitialEmptyPageProtection(oldPage);
+        int emptyPageIndicator = 1;
         while (finish > 0) {
             String tempPage = connection(url);
-            if (emptyPageProtection(tempPage)) continue;
+            if (emptyPageProtection(emptyPageIndicator, tempPage)) {
+                emptyPageIndicator++;
+                if (emptyPageIndicator > 10) {
+                    System.out.println("Nie udalo sie polaczyc ze strona, zamykam program.");
+                    Thread.sleep(30_000);
+                    System.exit(0);
+                }
+                Thread.sleep(interwal * 1000);
+                continue;
+            }
             check(tempPage, oldPage);
             finish--;
+            emptyPageIndicator = 1;
         }
     }
 
@@ -289,16 +301,22 @@ public class PageChange {
             pageContent = content.toString();
         } catch (IOException e) {
             System.out.println("Nie udalo sie polaczyc z podanym adresem!");
-            Thread.sleep(5_000);
-            System.exit(0);
+            return "";
         }
         return pageContent.toLowerCase().trim().replaceAll("\\s", "");
     }
 
-    private static boolean emptyPageProtection(String tempPage) throws InterruptedException {
+    private static void InitialEmptyPageProtection(String tempPage) throws InterruptedException {
         if (tempPage.isEmpty()) {
             System.out.println("Pusta strona... Prawdopodobnie zly adres strony...");
             Thread.sleep(5_000);
+            System.exit(0);
+        }
+    }
+
+    private static boolean emptyPageProtection(int number, String tempPage) throws InterruptedException {
+        if (tempPage.isEmpty()) {
+            System.out.println(number + " proba - Pusta strona... Prawdopodobnie zly adres strony...");
             return true;
         }
         return false;
