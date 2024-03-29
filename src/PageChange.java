@@ -7,9 +7,7 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.*;
 import java.text.DecimalFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -26,13 +24,13 @@ public class PageChange {
 
     static {
         try {
-            url = new URL("https://trojmiasto.pl");
-        } catch (MalformedURLException e) {
+            url = new URI("https://trojmiasto.pl").toURL();
+        } catch (RuntimeException | URISyntaxException | MalformedURLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static long interwal = 10L;
+    private static long interval = 10L;
     private static long finish = 1_000_000L;
     private static final List<String> emails = new ArrayList<>();
     private static boolean sound;
@@ -43,7 +41,7 @@ public class PageChange {
     private static LocalDate date;
     private static final List<String> errorList = new ArrayList<>();
     private static final String EMAIL_REGEX =
-            "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
+            "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
                     + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
 
     public static void main(String[] args) throws Exception {
@@ -63,18 +61,16 @@ public class PageChange {
             String tempPage = connection(url);
             if (emptyPageProtection(emptyPageIndicator, tempPage)) {
                 emptyPageIndicator++;
-                if (emptyPageIndicator > 10) {
-                    System.out.println("Nie udalo sie polaczyc ze strona, zamykam program.");
-                    Thread.sleep(30_000);
-                    System.exit(0);
-                }
-                Thread.sleep(interwal * 1000);
+                Thread.sleep(interval * 1000);
                 continue;
             }
             check(tempPage, oldPage);
             finish--;
             emptyPageIndicator = 1;
+
         }
+        System.out.println("Wartosc finish doszla do 0, zamykam program");
+        Thread.sleep(5_000);
     }
 
     private static void check(String tempPage, String oldPage) throws InterruptedException {
@@ -88,7 +84,7 @@ public class PageChange {
                     }
                 }
                 System.out.println();
-                Thread.sleep(interwal * 1_000);
+                Thread.sleep(interval * 1_000);
             } else {
                 for (String phrase : phrases) {
                     if (!tempPage.contains(phrase)) {
@@ -98,11 +94,11 @@ public class PageChange {
                     }
                 }
                 System.out.println();
-                Thread.sleep(interwal * 1_000);
+                Thread.sleep(interval * 1_000);
             }
         } else {
             if (tempPage.equals(oldPage)) {
-                searchAndSleep(interwal * 1_000, tempPage);
+                searchAndSleep(interval * 1_000, tempPage);
             } else {
                 printSuccess(" - JEST ZMIANA STRONY!!!!", null);
             }
@@ -144,14 +140,14 @@ public class PageChange {
             switch (args[i]) {
                 case "-u":
                     try {
-                        url = new URL(args[i + 1]);
-                    } catch (MalformedURLException e) {
+                        url = new URI(args[i + 1]).toURL();
+                    } catch (RuntimeException | URISyntaxException | MalformedURLException e) {
                         errorList.add("\n\u001B[31mNieprawidlowy parametr URL, zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
                     }
                     break;
                 case "-i":
                     try {
-                        interwal = Long.parseLong(args[i + 1]);
+                        interval = Long.parseLong(args[i + 1]);
                     } catch (Exception e) {
                         errorList.add("\n\u001B[31mNieprawidlowy parametr interwal, zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
                     }
@@ -169,7 +165,7 @@ public class PageChange {
                         if (!email.equals("-u") && !email.equals("-i") && !email.equals("-f") && !email.equals("-e")
                                 && !email.equals("-s") && !email.equals("-p") && !email.equals("-h")
                                 && !email.equals("-d") && !email.equals("-date")) {
-                            if (isValidEmail(args[j])) {
+                            if (isValidEmail(email)) {
                                 emails.add(email);
                             } else {
                                 errorList.add("\u001B[31mNieprawidlowy parametr email, zostanie zignorowany!\u001B[0m");
@@ -178,7 +174,6 @@ public class PageChange {
                             break;
                         }
                     }
-
                     break;
                 case "-s":
                     sound = true;
@@ -256,7 +251,7 @@ public class PageChange {
         String formattedFinish = decimalFormat.format(finish);
         String initialTxt = "\nPARAMETRY PROGRAMU:";
         initialTxt = initialTxt.concat("\nStrona: \u001B[35m" + url + "\u001B[0m\n");
-        initialTxt = initialTxt.concat("Czestotliwosc odswiezania: \u001B[35m" + interwal + "s \u001B[0m\n");
+        initialTxt = initialTxt.concat("Czestotliwosc odswiezania: \u001B[35m" + interval + "s \u001B[0m\n");
         initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n");
         if (!emails.isEmpty()) {
             initialTxt = initialTxt.concat("Adres/y wysylki emaila: \u001B[35m");
@@ -271,7 +266,7 @@ public class PageChange {
         if (hour != null) initialTxt = initialTxt.concat("Godzina: \u001B[35m" + hour + "\u001B[0m\n");
         if (negation) initialTxt = initialTxt.concat("Negacja: \u001B[35m" + negation + "\u001B[0m\n");
         if (!phrases.isEmpty()) {
-            initialTxt = initialTxt.concat("Szukanie fraz:\n\u001B[35m");
+            initialTxt = initialTxt.concat("Szukane frazy:\n\u001B[35m");
             for (String phrase : phrases) {
                 initialTxt = initialTxt.concat(phrase).concat("\n");
             }
@@ -285,8 +280,8 @@ public class PageChange {
         if (hour != null) checkHour();
     }
 
-    private static String connection(URL url) throws Exception {
-        String pageContent = null;
+    private static String connection(URL url) {
+        String pageContent;
         try {
             URLConnection conn = url.openConnection();
             BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
@@ -314,9 +309,9 @@ public class PageChange {
         }
     }
 
-    private static boolean emptyPageProtection(int number, String tempPage) throws InterruptedException {
+    private static boolean emptyPageProtection(int number, String tempPage) {
         if (tempPage.isEmpty()) {
-            System.out.println(number + " proba - Pusta strona... Prawdopodobnie zly adres strony...");
+            System.out.println(getTime() + " - " + number + " proba - Pusta strona... Prawdopodobnie chwilowy brak internetu lub blad serwera.");
             return true;
         }
         return false;
@@ -366,7 +361,7 @@ public class PageChange {
         System.out.println("\u001B[01;41m" + getTime() + text + "\n\u001B[0m");
         if (!emails.isEmpty()) {
             for (String email : emails) {
-                sendMail(email, url, phrase);
+                sendMail(email, url, phrase, 1);
             }
         }
         if (sound) playSound(10_000);
@@ -374,7 +369,7 @@ public class PageChange {
         System.exit(0);
     }
 
-    private static void sendMail(String email, URL urlString, String searchedPhrase) {
+    private static void sendMail(String email, URL urlString, String searchedPhrase, int retries) throws InterruptedException {
         if (sound) playSound(3);
         String host = "smtp.gmail.com";
         String port = "587";
@@ -405,13 +400,16 @@ public class PageChange {
                 else txt = txt.concat("Znaleziono text: " + searchedPhrase);
             }
             message.setText(txt);
-
             Transport.send(message);
             System.out.println("Email na adres " + email + " zostal wyslany pomyslnie.");
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("Wystąpil błąd podczas wysyłania emaila: " + e.getMessage());
+            if (retries <= 3) {
+                System.out.println("Wystąpil bląd podczas wysylania emaila, ponawiam probe wyslania maila, proba nr " + retries);
+                Thread.sleep(10_000);
+                sendMail(email, urlString, searchedPhrase, ++retries);
+            }
+            System.out.println("Wystąpil bląd podczas wysylania emaila: " + e.getMessage());
         }
     }
 
