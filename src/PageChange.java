@@ -54,8 +54,11 @@ public class PageChange {
         printErrors();
         initialText();
 
-        String oldPage = connection(url);
-        InitialEmptyPageProtection(oldPage);
+        String oldPage = null;
+        for (int i = 1; i <= 4; i++) {
+            oldPage = connection(url);
+            InitialEmptyPageProtection(oldPage, i);
+        }
         int emptyPageIndicator = 1;
         while (finish > 0) {
             String tempPage = connection(url);
@@ -230,7 +233,7 @@ public class PageChange {
 
     private static void checkDay() throws InterruptedException {
         DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
-        if (day == DayOfWeek.TUESDAY) {
+        if (day != dayOfWeek) {
             System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "! Zamykam program.\u001B[0m");
             Thread.sleep(30_000);
             System.exit(0);
@@ -239,8 +242,9 @@ public class PageChange {
 
     private static void checkDate() throws InterruptedException {
         LocalDate currentDate = LocalDate.now();
+        DateTimeFormatter formattedCurrentDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
         if (currentDate.isBefore(date)) {
-            System.out.println("\u001B[31mDzis nie jest " + date + " lub pozniej, dzis jest dopiero " + currentDate + "! Zamykam program.\u001B[0m");
+            System.out.println("\u001B[31mDzis nie jest " + formattedCurrentDate.format(date) + " lub pozniej, dzis jest dopiero " + formattedCurrentDate.format(currentDate) + "! Zamykam program.\u001B[0m");
             Thread.sleep(30_000);
             System.exit(0);
         }
@@ -261,7 +265,8 @@ public class PageChange {
             initialTxt = initialTxt.substring(0, initialTxt.length() - 2).concat("\u001B[0m\n");
         }
         initialTxt = initialTxt.concat("Dzwiek: \u001B[35m" + sound + "\u001B[0m\n");
-        if (date != null) initialTxt = initialTxt.concat("Po dacie: \u001B[35m" + date + "\u001B[0m\n");
+        if (date != null)
+            initialTxt = initialTxt.concat("Po dacie: \u001B[35m" + DateTimeFormatter.ofPattern("dd-MM-yyyy").format(date) + "\u001B[0m\n");
         if (day != null) initialTxt = initialTxt.concat("Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n");
         if (hour != null) initialTxt = initialTxt.concat("Godzina: \u001B[35m" + hour + "\u001B[0m\n");
         if (negation) initialTxt = initialTxt.concat("Negacja: \u001B[35m" + negation + "\u001B[0m\n");
@@ -301,11 +306,16 @@ public class PageChange {
         return pageContent.toLowerCase().trim().replaceAll("\\s", "");
     }
 
-    private static void InitialEmptyPageProtection(String tempPage) throws InterruptedException {
+    private static void InitialEmptyPageProtection(String tempPage, int i) throws InterruptedException {
         if (tempPage.isEmpty()) {
-            System.out.println("Pusta strona... Prawdopodobnie zly adres strony...");
-            Thread.sleep(5_000);
-            System.exit(0);
+            System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
+            if (i > 3) {
+                System.out.print(" Zamykam program");
+                Thread.sleep(5_000);
+                System.exit(0);
+            }
+            System.out.println(" Ponawiam probe za 30s. (" + i + "/3)");
+            Thread.sleep(30_000);
         }
     }
 
@@ -319,7 +329,7 @@ public class PageChange {
 
     private static String getTime() {
         LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
         return now.format(formatter);
     }
 
