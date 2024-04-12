@@ -12,6 +12,8 @@ java -jar Kino4.jar -u https://www.muzyczny.org/pl/repertuar.html -i 1800 -s -e 
 :: -d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
 :: -h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie i poczeka az bedzie po tej godzinie
 :: -date (date) - program bedzie sprawdzal czy jest juz po podanej dacie (dd-MM-yyyy), jak nie to zamknie program
+:: -vb (value bigger) - gdy ustawiona, pierewszy parametr jest fragmentem strony przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej bedzie sukces
+:: -vs (value smaller) - gdy ustawiona, pierewszy parametr jest fragmentem strony przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej bedzie sukces
 :: Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>
 
 

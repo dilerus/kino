@@ -20,7 +20,25 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PageChange {
+    private static final List<String> emails = new ArrayList<>();
+    private static final List<String> phrases = new ArrayList<>();
+    private static final List<String> PARAMETERS = Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs");
+    private static final String EMAIL_REGEX =
+            "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
+                    + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
     private static URL url;
+    private static long interval = 10L;
+    private static long finish = 1_000_000L;
+    private static boolean sound;
+    private static boolean negation;
+    private static DayOfWeek day;
+    private static LocalTime hour;
+    private static LocalDate date;
+    private static String preValue;
+    private static Float thresholdValue;
+    private static Float actualValue;
+    private static boolean checkValue;
+    private static boolean isBigger;
 
     static {
         try {
@@ -30,32 +48,9 @@ public class PageChange {
         }
     }
 
-    private static long interval = 10L;
-    private static long finish = 1_000_000L;
-    private static final List<String> emails = new ArrayList<>();
-    private static boolean sound;
-    private static boolean negation;
-    private static final List<String> phrases = new ArrayList<>();
-    private static DayOfWeek day;
-    private static LocalTime hour;
-    private static LocalDate date;
-    private static String preValue;
-    private static Float thresholdValue;
-    private static Float actualValue;
-    private static boolean checkValue;
-    private static boolean isBigger;
-    private static final List<String> PARAMETERS = Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs");
-    private static final String EMAIL_REGEX =
-            "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
-                    + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
-
     public static void main(String[] args) {
-        if (args != null && args.length == 1 && args[0].equals("--help")) {
-            System.out.println(fullHelpText());
-        } else {
-            System.out.println(shortHelpText());
-        }
-        if (args != null) argsParsing(args);
+        helpText(args);
+        argsParsing(args);
         initialText();
 
         String oldPage = null;
@@ -76,8 +71,16 @@ public class PageChange {
             finish--;
             emptyPageIndicator = 1;
         }
-        System.out.println("Wartosc finish doszla do 0, zamykam program");
-        sleep(5_000);
+        System.out.println("Wartosc parametru 'finish' doszla do 0.");
+        exit(30);
+    }
+
+    public static void helpText(String[] args) {
+        if (args != null && args.length == 1 && args[0].equals("--help")) {
+            System.out.println(fullHelpText());
+        } else {
+            System.out.println(shortHelpText());
+        }
     }
 
     private static void sleep(long millis) {
@@ -140,6 +143,7 @@ public class PageChange {
     }
 
     private static void argsParsing(String[] args) {
+        if (args == null) return;
         List<String> errorList = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -198,14 +202,14 @@ public class PageChange {
                     try {
                         day = DayOfWeek.valueOf(args[i + 1]);
                     } catch (IllegalArgumentException e) {
-                        errorList.add("\u001B[31mNieprawidlowy parametr day (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                        errorList.add("\u001B[31mNieprawidlowy parametr 'day' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
                     }
                     break;
                 case "-h":
                     try {
                         hour = LocalTime.of(Integer.parseInt(args[i + 1]), 0);
                     } catch (NumberFormatException e) {
-                        errorList.add("\u001B[31mNieprawidlowy parametr hour (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                        errorList.add("\u001B[31mNieprawidlowy parametr 'hour' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
                     }
                     break;
                 case "-date":
@@ -213,7 +217,7 @@ public class PageChange {
                     try {
                         date = LocalDate.parse(args[i + 1], formatter);
                     } catch (DateTimeParseException e) {
-                        System.out.println("\u001B[31mNieprawidlowy parametr date (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                        System.out.println("\u001B[31mNieprawidlowy parametr 'date' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
                     }
                     break;
                 case "-vb":
@@ -250,19 +254,23 @@ public class PageChange {
     private static void checkDay() {
         DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
         if (day != dayOfWeek) {
-            System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "! Zamykam program.\u001B[0m");
-            sleep(30_000);
-            System.exit(0);
+            System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "!\u001B[0m");
+            exit(30);
         }
+    }
+
+    public static void exit(long sec) {
+        System.out.println("Czekam " + sec + " sekund i zamykam program.");
+        sleep(sec * 1_000);
+        System.exit(0);
     }
 
     private static void checkDate() {
         LocalDate currentDate = LocalDate.now();
         DateTimeFormatter formattedCurrentDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
         if (currentDate.isBefore(date)) {
-            System.out.println("\u001B[31mDzis nie jest " + formattedCurrentDate.format(date) + " lub pozniej, dzis jest dopiero " + formattedCurrentDate.format(currentDate) + "! Zamykam program.\u001B[0m");
-            sleep(30_000);
-            System.exit(0);
+            System.out.println("\u001B[31mDzis nie jest " + formattedCurrentDate.format(date) + " lub pozniej, dzis jest dopiero " + formattedCurrentDate.format(currentDate) + "!\u001B[0m");
+            exit(30);
         }
     }
 
@@ -270,33 +278,33 @@ public class PageChange {
         DecimalFormat decimalFormat = new DecimalFormat("#,###");
         String formattedFinish = decimalFormat.format(finish);
         String initialTxt = "\nPARAMETRY PROGRAMU:";
-        initialTxt = initialTxt.concat("\nStrona: \u001B[35m" + url + "\u001B[0m\n");
-        initialTxt = initialTxt.concat("Czestotliwosc odswiezania: \u001B[35m" + interval + "s \u001B[0m\n");
-        initialTxt = initialTxt.concat("Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n");
+        initialTxt += "\nStrona: \u001B[35m" + url + "\u001B[0m\n";
+        initialTxt += "Czestotliwosc odswiezania: \u001B[35m" + interval + "s \u001B[0m\n";
+        initialTxt += "Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n";
         if (!emails.isEmpty()) {
-            initialTxt = initialTxt.concat("Adres/y wysylki emaila: \u001B[35m");
+            initialTxt += "Adres/y wysylki emaila: \u001B[35m";
             for (String email : emails) {
                 initialTxt = initialTxt.concat(email + ", ");
             }
             initialTxt = initialTxt.substring(0, initialTxt.length() - 2).concat("\u001B[0m\n");
         }
-        initialTxt = initialTxt.concat("Dzwiek: \u001B[35m" + sound + "\u001B[0m\n");
+        initialTxt += "Dzwiek: \u001B[35m" + sound + "\u001B[0m\n";
         if (date != null)
-            initialTxt = initialTxt.concat("Po dacie: \u001B[35m" + DateTimeFormatter.ofPattern("dd-MM-yyyy").format(date) + "\u001B[0m\n");
-        if (day != null) initialTxt = initialTxt.concat("Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n");
-        if (hour != null) initialTxt = initialTxt.concat("Godzina: \u001B[35m" + hour + "\u001B[0m\n");
-        if (negation) initialTxt = initialTxt.concat("Negacja: \u001B[35m" + negation + "\u001B[0m\n");
+            initialTxt += "Po dacie: \u001B[35m" + DateTimeFormatter.ofPattern("dd-MM-yyyy").format(date) + "\u001B[0m\n";
+        if (day != null) initialTxt += "Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n";
+        if (hour != null) initialTxt += "Godzina: \u001B[35m" + hour + "\u001B[0m\n";
+        if (negation) initialTxt += "Negacja: \u001B[35m" + negation + "\u001B[0m\n";
         if (!phrases.isEmpty()) {
-            initialTxt = initialTxt.concat("Szukane frazy:\n\u001B[35m");
+            initialTxt += "Szukane frazy:\n\u001B[35m";
             for (String phrase : phrases) {
                 initialTxt = initialTxt.concat(phrase).concat("\n");
             }
-            initialTxt = initialTxt.concat("\u001B[0m\n");
+            initialTxt += "\u001B[0m\n";
         }
         if (checkValue) {
-            initialTxt = initialTxt.concat("Szukanie wartosci");
-            initialTxt = initialTxt.concat((isBigger) ? " wiekszej " : " mniejszej ");
-            initialTxt = initialTxt.concat("niz: \u001B[35m" + thresholdValue + "\u001B[0m\n");
+            initialTxt += "Szukanie wartosci";
+            initialTxt += (isBigger) ? " wiekszej " : " mniejszej ";
+            initialTxt += "niz: \u001B[35m" + thresholdValue + "\u001B[0m\n";
         }
         System.out.println(initialTxt);
         if (date != null) checkDate();
@@ -328,9 +336,7 @@ public class PageChange {
     private static void InitialEmptyPageProtection(int i) {
         System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
         if (i > 3) {
-            System.out.print(" Zamykam program");
-            sleep(5_000);
-            System.exit(0);
+            exit(30);
         }
         System.out.println(" Ponawiam probe za 30s. (" + i + "/3)");
         sleep(30_000);
@@ -358,9 +364,8 @@ public class PageChange {
     private static void setActualValue(String page) {
         int position = page.indexOf(preValue);
         if (position == -1) {
-            System.out.println("Podciąg '" + preValue + "' nie został znaleziony w stringu.");
-            sleep(30_000);
-            System.exit(0);
+            System.out.println("Fragment '" + preValue + "' nie został znaleziony na stronie.");
+            exit(30);
         }
         float number = 0;
         String text = page.substring(position + preValue.length(), position + preValue.length() + 20);
@@ -395,13 +400,13 @@ public class PageChange {
     private static void printAndSleep(String tempPage) {
         String result = "\u001B[32m" + getTime() + " - ";
         if (checkValue) {
-            result += "Znaleziona wartosc '" + actualValue + "' nie jest ";
+            result += "Znaleziona wartosc: '" + actualValue + "' nie jest ";
             result += isBigger ? "wieksza" : "mniejsza";
-            result += " niz ustawiona wartosc progowa '" + thresholdValue + "'.";
+            result += " niz ustawiona wartosc progowa: '" + thresholdValue + "'.";
         } else {
-            result += "sprawdzam czy podana strona sie zmienila... Dlugosc strony: " + tempPage.length() + "\u001B[0m";
+            result += "sprawdzam czy podana strona sie zmienila... Dlugosc strony: " + tempPage.length();
         }
-        System.out.println(result);
+        System.out.println(result + "\u001B[0m");
         sleep(interval * 1_000);
     }
 
@@ -433,8 +438,7 @@ public class PageChange {
             }
         }
         if (sound) playSound(10_000);
-        sleep(3_600_000);
-        System.exit(0);
+        exit(3_600);
     }
 
     private static void sendMail(String email, URL urlString, String searchedPhrase, int retries, int retriesLimit) {
@@ -462,10 +466,10 @@ public class PageChange {
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(email));
             message.setSubject("Sukces!");
             String txt = "Zmiana strony!!!\n";
-            txt = txt.concat("Strona: " + urlString + "\n");
+            txt += "Strona: " + urlString + "\n";
             if (searchedPhrase != null) {
-                if (negation) txt = txt.concat("Nie znaleziono textu: " + searchedPhrase);
-                else txt = txt.concat("Znaleziono text: " + searchedPhrase);
+                if (negation) txt += "Nie znaleziono textu: " + searchedPhrase;
+                else txt += "Znaleziono text: " + searchedPhrase;
             }
             message.setText(txt);
             Transport.send(message);
