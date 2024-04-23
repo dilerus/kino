@@ -9,6 +9,7 @@ import javax.sound.sampled.Clip;
 import java.io.*;
 import java.net.*;
 import java.text.DecimalFormat;
+import java.text.Normalizer;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -20,9 +21,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PageChange {
-    private static final List<String> emails = new ArrayList<>();
-    private static final List<String> phrases = new ArrayList<>();
-    private static final List<String> PARAMETERS = Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs");
+    private static final List<String> EMAILS = new ArrayList<>();
+    private static final List<String> PHRASES = new ArrayList<>();
+    private static final List<String> AVAILABLE_PARAMETERS = Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs");
     private static final String EMAIL_REGEX =
             "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
                     + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
@@ -57,7 +58,7 @@ public class PageChange {
         for (int i = 1; i <= 4; i++) {
             oldPage = connection(url);
             if (!oldPage.isEmpty()) break;
-            InitialEmptyPageProtection(i);
+            initialEmptyPageProtection(i);
         }
         int emptyPageIndicator = 1;
         while (finish > 0) {
@@ -92,8 +93,8 @@ public class PageChange {
     }
 
     private static void check(String tempPage, String oldPage) {
-        if (!phrases.isEmpty()) {
-            for (String phrase : phrases) {
+        if (!PHRASES.isEmpty()) {
+            for (String phrase : PHRASES) {
                 if ((!negation && !tempPage.contains(phrase)) || (negation && tempPage.contains(phrase))) {
                     print(tempPage, phrase);
                 } else {
@@ -108,11 +109,11 @@ public class PageChange {
                 if ((checkActualValueAgainstThresholdValue() && isBigger) || (!checkActualValueAgainstThresholdValue() && !isBigger)) {
                     printSuccess(null);
                 } else {
-                    printAndSleep(tempPage);
+                    printDefeatAndSleep(tempPage);
                 }
             } else {
                 if (tempPage.equals(oldPage)) {
-                    printAndSleep(tempPage);
+                    printDefeatAndSleep(tempPage);
                 } else {
                     printSuccess(null);
                 }
@@ -171,9 +172,9 @@ public class PageChange {
                 case "-e":
                     for (int j = i + 1; j < args.length; j++) {
                         String email = args[j];
-                        if (!PARAMETERS.contains(email)) {
+                        if (!AVAILABLE_PARAMETERS.contains(email)) {
                             if (isValidEmail(email)) {
-                                emails.add(email);
+                                EMAILS.add(email);
                             } else {
                                 errorList.add("\u001B[31mNieprawidlowy parametr email (" + email + "), zostanie zignorowany!\u001B[0m");
                             }
@@ -189,10 +190,13 @@ public class PageChange {
                     negation = true;
                     break;
                 case "-p":
+                    if (checkValue) {
+                        System.out.println("\u001B[31mParametr 'value bigger' lub 'value smaller' zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
+                    }
                     for (int j = i + 1; j < args.length; j++) {
-                        String phrase = args[j].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", "");
-                        if (!PARAMETERS.contains(phrase)) {
-                            phrases.add(phrase);
+                        String phrase = removePolishChars(args[j].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
+                        if (!AVAILABLE_PARAMETERS.contains(phrase)) {
+                            PHRASES.add(phrase);
                         } else {
                             break;
                         }
@@ -221,13 +225,21 @@ public class PageChange {
                     }
                     break;
                 case "-vb":
-                    preValue = args[i + 1].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", "");
+                    if (!PHRASES.isEmpty()) {
+                        System.out.println("\u001B[31mParametr 'value bigger' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
+                        break;
+                    }
+                    preValue = removePolishChars(args[i + 1].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
                     thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
                     checkValue = true;
                     isBigger = true;
                     break;
                 case "-vs":
-                    preValue = args[i + 1].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", "");
+                    if (!PHRASES.isEmpty()) {
+                        System.out.println("\u001B[31mParametr 'value smaller' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
+                        break;
+                    }
+                    preValue = removePolishChars(args[i + 1].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
                     thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
                     checkValue = true;
                     isBigger = false;
@@ -240,6 +252,12 @@ public class PageChange {
                 System.out.println(error);
             }
         }
+    }
+
+    private static String removePolishChars(String input) {
+        String normalizedString = Normalizer.normalize(input, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        return pattern.matcher(normalizedString).replaceAll("");
     }
 
     private static void checkHour() {
@@ -281,9 +299,9 @@ public class PageChange {
         initialTxt += "\nStrona: \u001B[35m" + url + "\u001B[0m\n";
         initialTxt += "Czestotliwosc odswiezania: \u001B[35m" + interval + "s \u001B[0m\n";
         initialTxt += "Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n";
-        if (!emails.isEmpty()) {
+        if (!EMAILS.isEmpty()) {
             initialTxt += "Adres/y wysylki emaila: \u001B[35m";
-            for (String email : emails) {
+            for (String email : EMAILS) {
                 initialTxt = initialTxt.concat(email + ", ");
             }
             initialTxt = initialTxt.substring(0, initialTxt.length() - 2).concat("\u001B[0m\n");
@@ -294,14 +312,14 @@ public class PageChange {
         if (day != null) initialTxt += "Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n";
         if (hour != null) initialTxt += "Godzina: \u001B[35m" + hour + "\u001B[0m\n";
         if (negation) initialTxt += "Negacja: \u001B[35m" + negation + "\u001B[0m\n";
-        if (!phrases.isEmpty()) {
+        if (!PHRASES.isEmpty()) {
             initialTxt += "Szukane frazy:\n\u001B[35m";
-            for (String phrase : phrases) {
+            for (String phrase : PHRASES) {
                 initialTxt = initialTxt.concat(phrase).concat("\n");
             }
             initialTxt += "\u001B[0m\n";
         }
-        if (checkValue) {
+        if (checkValue && PHRASES.isEmpty()) {
             initialTxt += "Szukanie wartosci";
             initialTxt += (isBigger) ? " wiekszej " : " mniejszej ";
             initialTxt += "niz: \u001B[35m" + thresholdValue + "\u001B[0m\n";
@@ -330,10 +348,10 @@ public class PageChange {
             System.out.println("Nie udalo sie polaczyc z podanym adresem!");
             return "";
         }
-        return pageContent.toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", "");
+        return removePolishChars(pageContent.toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
     }
 
-    private static void InitialEmptyPageProtection(int i) {
+    private static void initialEmptyPageProtection(int i) {
         System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
         if (i > 3) {
             exit(30);
@@ -397,10 +415,10 @@ public class PageChange {
         }
     }
 
-    private static void printAndSleep(String tempPage) {
+    private static void printDefeatAndSleep(String tempPage) {
         String result = "\u001B[32m" + getTime() + " - ";
         if (checkValue) {
-            result += "Znaleziona wartosc: '" + actualValue + "' nie jest ";
+            result += "znaleziona wartosc: '" + actualValue + "' nie jest ";
             result += isBigger ? "wieksza" : "mniejsza";
             result += " niz ustawiona wartosc progowa: '" + thresholdValue + "'.";
         } else {
@@ -419,7 +437,7 @@ public class PageChange {
 
     private static void printSuccess(String phrase) {
         String result = "\u001B[01;41m" + getTime() + " - SUKCES - ";
-        if (!phrases.isEmpty()) {
+        if (!PHRASES.isEmpty()) {
             if (negation) result += "nie znaleziono frazy: ";
             else result += "znaleziono fraze: ";
             result += phrase;
@@ -432,8 +450,8 @@ public class PageChange {
             } else result += "jest zmiana strony";
         }
         System.out.println(result + "\n\u001B[0m");
-        if (!emails.isEmpty()) {
-            for (String email : emails) {
+        if (!EMAILS.isEmpty()) {
+            for (String email : EMAILS) {
                 sendMail(email, url, phrase, 1, 5);
             }
         }
