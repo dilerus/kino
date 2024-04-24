@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 public class PageChange {
     private static final List<String> EMAILS = new ArrayList<>();
     private static final List<String> PHRASES = new ArrayList<>();
-    private static final List<String> AVAILABLE_PARAMETERS = Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs");
+    private static final List<String> AVAILABLE_PARAMETERS = Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs", "-inc");
     private static final String EMAIL_REGEX =
             "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
                     + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
@@ -40,6 +40,8 @@ public class PageChange {
     private static Float actualValue;
     private static boolean checkValue;
     private static boolean isBigger;
+    private static Long incrementation_value;
+    private static String prefix_incrementation;
 
     static {
         try {
@@ -57,8 +59,11 @@ public class PageChange {
         String oldPage = null;
         for (int i = 1; i <= 4; i++) {
             oldPage = connection(url);
+            if (incrementation_value != 0) {
+                load_incrementation_phrase(oldPage);
+            }
             if (!oldPage.isEmpty()) break;
-            initialEmptyPageProtection(i);
+            initialEmptyPageProtection(i, 3);
         }
         int emptyPageIndicator = 1;
         while (finish > 0) {
@@ -76,7 +81,22 @@ public class PageChange {
         exit(30);
     }
 
-    public static void helpText(String[] args) {
+    private static void load_incrementation_phrase(String oldPage) {
+        while (true) {
+            if (oldPage.contains(prefix_incrementation + incrementation_value)) {
+                incrementation_value++;
+            } else {
+                PHRASES.add(prefix_incrementation + incrementation_value);
+                if (PHRASES.size() == 1) {
+                    System.out.println("Szukane frazy:");
+                }
+                System.out.println("\u001B[35m" + prefix_incrementation + incrementation_value + "\u001B[0m\n");
+                break;
+            }
+        }
+    }
+
+    private static void helpText(String[] args) {
         if (args != null && args.length == 1 && args[0].equals("--help")) {
             System.out.println(fullHelpText());
         } else {
@@ -140,6 +160,7 @@ public class PageChange {
                 -n (negacja) - gdy ustawiona, program bedzie czekal az podane frazy znikna ze strony, nie potrzebuje dodatkowego parametru
                 -vb (value bigger) - gdy ustawiona, pierewszy parametr jest fragmentem strony przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej bedzie sukces
                 -vs (value smaller) - gdy ustawiona, pierewszy parametr jest fragmentem strony przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej bedzie sukces
+                -inc
                 Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
 
@@ -194,7 +215,7 @@ public class PageChange {
                         System.out.println("\u001B[31mParametr 'value bigger' lub 'value smaller' zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
                     }
                     for (int j = i + 1; j < args.length; j++) {
-                        String phrase = removePolishChars(args[j].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
+                        String phrase = normilizeString(args[j]);
                         if (!AVAILABLE_PARAMETERS.contains(phrase)) {
                             PHRASES.add(phrase);
                         } else {
@@ -229,7 +250,7 @@ public class PageChange {
                         System.out.println("\u001B[31mParametr 'value bigger' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
                         break;
                     }
-                    preValue = removePolishChars(args[i + 1].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
+                    preValue = normilizeString(args[i + 1]);
                     thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
                     checkValue = true;
                     isBigger = true;
@@ -239,10 +260,14 @@ public class PageChange {
                         System.out.println("\u001B[31mParametr 'value smaller' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
                         break;
                     }
-                    preValue = removePolishChars(args[i + 1].toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
+                    preValue = normilizeString(args[i + 1]);
                     thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
                     checkValue = true;
                     isBigger = false;
+                    break;
+                case "-inc":
+                    prefix_incrementation = normilizeString(args[i + 1]);
+                    incrementation_value = Long.parseLong(args[i + 2].replaceAll(",", "."));
                     break;
             }
         }
@@ -254,7 +279,8 @@ public class PageChange {
         }
     }
 
-    private static String removePolishChars(String input) {
+    private static String normilizeString(String input) {
+        input = input.toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", "");
         String normalizedString = Normalizer.normalize(input, Normalizer.Form.NFD);
         Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
         return pattern.matcher(normalizedString).replaceAll("");
@@ -317,7 +343,8 @@ public class PageChange {
             for (String phrase : PHRASES) {
                 initialTxt = initialTxt.concat(phrase).concat("\n");
             }
-            initialTxt += "\u001B[0m\n";
+            initialTxt = initialTxt.substring(0, initialTxt.length() - 1) + "\u001B[0m";
+            if (incrementation_value == 0) initialTxt += "\n";
         }
         if (checkValue && PHRASES.isEmpty()) {
             initialTxt += "Szukanie wartosci";
@@ -348,15 +375,15 @@ public class PageChange {
             System.out.println("Nie udalo sie polaczyc z podanym adresem!");
             return "";
         }
-        return removePolishChars(pageContent.toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", ""));
+        return normilizeString(pageContent);
     }
 
-    private static void initialEmptyPageProtection(int i) {
+    private static void initialEmptyPageProtection(int i, int j) {
         System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
         if (i > 3) {
             exit(30);
         }
-        System.out.println(" Ponawiam probe za 30s. (" + i + "/3)");
+        System.out.println(" Ponawiam probe za 30s. (" + i + "/" + j + ")");
         sleep(30_000);
     }
 
