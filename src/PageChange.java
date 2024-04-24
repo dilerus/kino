@@ -88,7 +88,7 @@ public class PageChange {
             } else {
                 PHRASES.add(prefix_incrementation + incrementation_value);
                 if (PHRASES.size() == 1) {
-                    System.out.println("Szukane frazy:");
+                    System.out.println("Szukane frazy:-u https://www.youtube.com/@NaWschododBliskiegoWschodu/videos -inc # 220 -i 60");
                 }
                 System.out.println("\u001B[35m" + prefix_incrementation + incrementation_value + "\u001B[0m\n");
                 break;
@@ -157,10 +157,10 @@ public class PageChange {
                 -d (day) - dzien tygodnia w ktorym zostanie uruchomiony skrypt (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
                 -h (hour) - program bedzie sprawdzal czy jest juz po zadanej godzinie, i poczeka az bedzie po tej godzinie
                 -p (phrases) - slowa/zdania/frazy ktore maja byc wyszukiwane na stronie, usuwane sa spacje i znaki specjalne, domyslnie: brak, program sprawdza tylko czy strona sie zmienila
-                -n (negacja) - gdy ustawiona, program bedzie czekal az podane frazy znikna ze strony, nie potrzebuje dodatkowego parametru
-                -vb (value bigger) - gdy ustawiona, pierewszy parametr jest fragmentem strony przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej bedzie sukces
-                -vs (value smaller) - gdy ustawiona, pierewszy parametr jest fragmentem strony przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej bedzie sukces
-                -inc
+                -n (negate) - gdy ustawiona, program bedzie czekal az podane frazy znikna ze strony, nie potrzebuje dodatkowego parametru
+                -vb (value bigger) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w gore bedzie sukces
+                -vs (value smaller) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w dol bedzie sukces
+                -inc (increment) - dwa parametry, pierewszy parametr to prefix przed wartoscia liczbowa i wartosc liczbowa, gdy ustawione, program laduje do szukanuch fraz kolejna, nieznaleziona jeszcze fraze zlozona z prefixu i wartosci
                 Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
 
@@ -267,7 +267,7 @@ public class PageChange {
                     break;
                 case "-inc":
                     prefix_incrementation = normilizeString(args[i + 1]);
-                    incrementation_value = Long.parseLong(args[i + 2].replaceAll(",", "."));
+                    incrementation_value = Long.parseLong(args[i + 2]);
                     break;
             }
         }
