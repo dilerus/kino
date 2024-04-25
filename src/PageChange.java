@@ -40,8 +40,7 @@ public class PageChange {
     private static Float actualValue;
     private static boolean checkValue;
     private static boolean isBigger;
-    private static Long incrementation_value;
-    private static String prefix_incrementation;
+    private static String prefixIncrementation;
 
     static {
         try {
@@ -59,7 +58,7 @@ public class PageChange {
         String oldPage = null;
         for (int i = 1; i <= 4; i++) {
             oldPage = connection(url);
-            if (incrementation_value != 0) {
+            if (prefixIncrementation != null) {
                 load_incrementation_phrase(oldPage);
             }
             if (!oldPage.isEmpty()) break;
@@ -82,17 +81,17 @@ public class PageChange {
     }
 
     private static void load_incrementation_phrase(String oldPage) {
-        while (true) {
-            if (oldPage.contains(prefix_incrementation + incrementation_value)) {
-                incrementation_value++;
-            } else {
-                PHRASES.add(prefix_incrementation + incrementation_value);
-                if (PHRASES.size() == 1) {
-                    System.out.println("Szukane frazy:-u https://www.youtube.com/@NaWschododBliskiegoWschodu/videos -inc # 220 -i 60");
-                }
-                System.out.println("\u001B[35m" + prefix_incrementation + incrementation_value + "\u001B[0m\n");
-                break;
+        long incrementationValue;
+        if (oldPage.contains(prefixIncrementation)) {
+            Pattern pattern = Pattern.compile("\\D");
+            Matcher matcher = pattern.matcher(oldPage.substring(oldPage.indexOf(prefixIncrementation) + prefixIncrementation.length(), oldPage.indexOf(prefixIncrementation) + prefixIncrementation.length() + 10));
+            incrementationValue = Long.parseLong(matcher.replaceAll(""));
+            incrementationValue++;
+            PHRASES.add(prefixIncrementation + incrementationValue);
+            if (PHRASES.size() == 1) {
+                System.out.println("Szukane frazy:");
             }
+            System.out.println("\u001B[35m" + prefixIncrementation + incrementationValue + "\u001B[0m\n");
         }
     }
 
@@ -160,7 +159,7 @@ public class PageChange {
                 -n (negate) - gdy ustawiona, program bedzie czekal az podane frazy znikna ze strony, nie potrzebuje dodatkowego parametru
                 -vb (value bigger) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w gore bedzie sukces
                 -vs (value smaller) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w dol bedzie sukces
-                -inc (increment) - dwa parametry, pierewszy parametr to prefix przed wartoscia liczbowa i wartosc liczbowa, gdy ustawione, program laduje do szukanuch fraz kolejna, nieznaleziona jeszcze fraze zlozona z prefixu i wartosci
+                -inc (increment) - prefix przed wartoscia liczbowa, gdy ustawione, program laduje do szukanych fraz fraze zlozona z prefixu i wartosci zwiekszonej o jeden
                 Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
 
@@ -266,8 +265,7 @@ public class PageChange {
                     isBigger = false;
                     break;
                 case "-inc":
-                    prefix_incrementation = normilizeString(args[i + 1]);
-                    incrementation_value = Long.parseLong(args[i + 2]);
+                    prefixIncrementation = normilizeString(args[i + 1]);
                     break;
             }
         }
@@ -344,7 +342,7 @@ public class PageChange {
                 initialTxt = initialTxt.concat(phrase).concat("\n");
             }
             initialTxt = initialTxt.substring(0, initialTxt.length() - 1) + "\u001B[0m";
-            if (incrementation_value == 0) initialTxt += "\n";
+            if (prefixIncrementation == null) initialTxt += "\n";
         }
         if (checkValue && PHRASES.isEmpty()) {
             initialTxt += "Szukanie wartosci";
