@@ -339,17 +339,15 @@ public class PageChange {
         if (!PHRASES.isEmpty()) {
             initialTxt += "Szukane frazy:\n\u001B[35m";
             for (String phrase : PHRASES) {
-                initialTxt = initialTxt.concat(phrase).concat("\n");
+                initialTxt = initialTxt.concat("\u001B[35m" + phrase + "\u001B[0m\n");
             }
-            initialTxt = initialTxt.substring(0, initialTxt.length() - 1) + "\u001B[0m";
-            if (prefixIncrementation == null) initialTxt += "\n";
         }
         if (checkValue && PHRASES.isEmpty()) {
             initialTxt += "Szukanie wartosci";
             initialTxt += (isBigger) ? " wiekszej " : " mniejszej ";
             initialTxt += "niz: \u001B[35m" + thresholdValue + "\u001B[0m\n";
         }
-        System.out.println(initialTxt);
+        System.out.println(initialTxt.substring(0, initialTxt.length() - 1));
         if (date != null) checkDate();
         if (day != null) checkDay();
         if (hour != null) checkHour();
