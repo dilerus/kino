@@ -58,11 +58,11 @@ public class PageChange {
         String oldPage = null;
         for (int i = 1; i <= 4; i++) {
             oldPage = connection(url);
-            if (prefixIncrementation != null) {
-                load_incrementation_phrase(oldPage);
-            }
             if (!oldPage.isEmpty()) break;
             initialEmptyPageProtection(i, 3);
+        }
+        if (prefixIncrementation != null) {
+            load_incrementation_phrase(oldPage);
         }
         int emptyPageIndicator = 1;
         while (finish > 0) {
@@ -280,8 +280,7 @@ public class PageChange {
     private static String normilizeString(String input) {
         input = input.toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", "");
         String normalizedString = Normalizer.normalize(input, Normalizer.Form.NFD);
-        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
-        return pattern.matcher(normalizedString).replaceAll("");
+        return Pattern.compile("\\p{InCombiningDiacriticalMarks}+").matcher(normalizedString).replaceAll("");
     }
 
     private static void checkHour() {
