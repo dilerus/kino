@@ -24,6 +24,7 @@ public class PageChange {
     private static final List<String> EMAILS = new ArrayList<>();
     private static final List<String> PHRASES = new ArrayList<>();
     private static final List<String> AVAILABLE_PARAMETERS = Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs", "-inc");
+    private static final int EMPTY_PAGE_RETRIES = 3;
     private static final String EMAIL_REGEX =
             "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
                     + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
@@ -59,7 +60,7 @@ public class PageChange {
         for (int i = 1; i <= 4; i++) {
             oldPage = connection(url);
             if (!oldPage.isEmpty()) break;
-            initialEmptyPageProtection(i, 3);
+            initialEmptyPageProtection(i);
         }
         if (prefixIncrementation != null) {
             load_incrementation_phrase(oldPage);
@@ -98,6 +99,7 @@ public class PageChange {
     private static void helpText(String[] args) {
         if (args != null && args.length == 1 && args[0].equals("--help")) {
             System.out.println(fullHelpText());
+            System.exit(0);
         } else {
             System.out.println(shortHelpText());
         }
@@ -373,12 +375,12 @@ public class PageChange {
         return normilizeString(pageContent);
     }
 
-    private static void initialEmptyPageProtection(int i, int j) {
+    private static void initialEmptyPageProtection(int i) {
         System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
         if (i > 3) {
             exit(30);
         }
-        System.out.println(" Ponawiam probe za 30s. (" + i + "/" + j + ")");
+        System.out.println(" Ponawiam probe za 30s. (" + i + "/" + EMPTY_PAGE_RETRIES + ")");
         sleep(30_000);
     }
 
