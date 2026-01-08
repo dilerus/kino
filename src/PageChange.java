@@ -1,20 +1,16 @@
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import javax.mail.Message;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import java.io.*;
+import java.net.*;
 import java.text.DecimalFormat;
 import java.text.Normalizer;
-import java.time.DayOfWeek;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -24,20 +20,11 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.mail.Message;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-
 public class PageChange {
     private static final List<String> EMAILS = new ArrayList<>();
     private static final List<String> PHRASES = new ArrayList<>();
     private static final List<String> AVAILABLE_PARAMETERS =
-            Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs", "-inc", "-debug");
+            Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs", "-inc", "-debug", "-bt", "-st");
     private static final int EMPTY_PAGE_RETRIES = 3;
     private static final String EMAIL_REGEX =
             "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
@@ -45,8 +32,11 @@ public class PageChange {
     private static URL url;
     private static long interval = 10L;
     private static long finish = 1_000_000L;
+    private static long siteSize;
     private static boolean sound;
     private static boolean negation;
+    private static boolean biggerThan;
+    private static boolean smallerThan;
     private static DayOfWeek day;
     private static LocalTime hour;
     private static LocalDate date;
@@ -57,6 +47,7 @@ public class PageChange {
     private static boolean isBigger;
     private static boolean debug;
     private static String prefixIncrementation;
+    private static String tempPage;
 
     static {
         try {
@@ -80,11 +71,11 @@ public class PageChange {
             initialEmptyPageProtection(i);
         }
         if (prefixIncrementation != null) {
-            load_incrementation_phrase(oldPage);
+            loadIncrementationPhrase(oldPage);
         }
         int emptyPageIndicator = 1;
         while (finish > 0) {
-            String tempPage = connection(url);
+            tempPage = connection(url);
             if (emptyPageProtection(emptyPageIndicator, tempPage)) {
                 emptyPageIndicator++;
                 sleep(interval * 1_000);
@@ -101,7 +92,7 @@ public class PageChange {
         exit(30);
     }
 
-    private static void load_incrementation_phrase(String oldPage) {
+    private static void loadIncrementationPhrase(String oldPage) {
         long incrementationValue;
         if (oldPage.contains(prefixIncrementation)) {
             Matcher matcher = Pattern.compile("\\D").matcher(oldPage.substring(oldPage.indexOf(prefixIncrementation) + prefixIncrementation.length(),
@@ -120,8 +111,7 @@ public class PageChange {
         if (args != null && args.length == 1 && args[0].equals("--help")) {
             System.out.println(fullHelpText());
             System.exit(0);
-        }
-        else {
+        } else {
             System.out.println(shortHelpText());
         }
     }
@@ -139,34 +129,49 @@ public class PageChange {
             for (String phrase : PHRASES) {
                 if ((!negation && !tempPage.contains(phrase)) || (negation && tempPage.contains(phrase))) {
                     print(tempPage, phrase);
-                }
-                else {
+                } else {
                     printSuccess(phrase);
                 }
             }
             System.out.println();
             sleep(interval * 1_000);
+            return;
         }
-        else {
-            if (checkValue) {
-                setActualValue(tempPage);
-                if ((checkActualValueAgainstThresholdValue() && isBigger) || (!checkActualValueAgainstThresholdValue() && !isBigger)) {
-                    printSuccess(null);
-                }
-                else {
-                    printDefeatAndSleep(tempPage);
-                }
+        if (checkValue) {
+            setActualValue(tempPage);
+            if ((checkActualValueAgainstThresholdValue() && isBigger) || (!checkActualValueAgainstThresholdValue() && !isBigger)) {
+                printSuccess(null);
+            } else {
+                printDefeatAndSleep(tempPage);
             }
-            else {
-                if (tempPage.equals(oldPage)) {
-                    printDefeatAndSleep(tempPage);
-                }
-                else {
-                    printSuccess(null);
-                }
-            }
+            return;
         }
+        if (biggerThan) {
+            if (tempPage.length() > siteSize) {
+                printSuccess(null);
+            } else {
+                printDefeatAndSleep(tempPage);
+            }
+            return;
+        }
+        if (smallerThan) {
+            if (tempPage.length() < siteSize) {
+                printSuccess(null);
+            } else {
+                printDefeatAndSleep(tempPage);
+            }
+            return;
+        }
+
+
+        if (tempPage.equals(oldPage)) {
+            printDefeatAndSleep(tempPage);
+        } else {
+            printSuccess(null);
+        }
+
     }
+
 
     private static String shortHelpText() {
         return "Wpisz --help aby uzyskac pomoc.";
@@ -188,6 +193,8 @@ public class PageChange {
                 -vb (value bigger) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w gore bedzie sukces
                 -vs (value smaller) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w dol bedzie sukces
                 -inc (increment) - prefix przed wartoscia liczbowa, gdy ustawione, program laduje do szukanych fraz fraze zlozona z prefixu i wartosci zwiekszonej o jeden
+                -bt (bigger than) - jeśli wartosc strony jest wieksza niz podana, to sukces
+                -st (smaller than) - jeśli wartosc strony jest mniejsza niz podana, to sukces
                 -debug - jesli flaga obecna, program wyprintuje zawartosc strony
                 Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
@@ -199,117 +206,132 @@ public class PageChange {
         List<String> errorList = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
-            case "-u":
-                try {
-                    url = new URI(args[i + 1]).toURL();
-                } catch (RuntimeException | URISyntaxException | MalformedURLException e) {
-                    errorList.add(
-                            "\n\u001B[31mNieprawidlowy parametr URL (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
-                }
-                break;
-            case "-i":
-                try {
-                    interval = Long.parseLong(args[i + 1]);
-                } catch (Exception e) {
-                    errorList.add("\n\u001B[31mNieprawidlowy parametr interwal (" + args[i + 1]
-                            + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
-                }
-                break;
-            case "-f":
-                try {
-                    finish = Long.parseLong(args[i + 1]);
-                } catch (Exception e) {
-                    errorList.add(
-                            "\n\u001B[31mNieprawidlowy parametr finish (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna.\u001B[0m");
-                }
-                break;
-            case "-e":
-                for (int j = i + 1; j < args.length; j++) {
-                    String email = args[j];
-                    if (!AVAILABLE_PARAMETERS.contains(email)) {
-                        if (isValidEmail(email)) {
-                            EMAILS.add(email);
-                        }
-                        else {
-                            errorList.add("\u001B[31mNieprawidlowy parametr email (" + email + "), zostanie zignorowany!\u001B[0m");
+                case "-u":
+                    try {
+                        url = new URI(args[i + 1]).toURL();
+                    } catch (RuntimeException | URISyntaxException | MalformedURLException e) {
+                        errorList.add(
+                                "\n\u001B[31mNieprawidlowy parametr URL (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
+                    }
+                    break;
+                case "-i":
+                    try {
+                        interval = Long.parseLong(args[i + 1]);
+                    } catch (Exception e) {
+                        errorList.add("\n\u001B[31mNieprawidlowy parametr interwal (" + args[i + 1]
+                                + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
+                    }
+                    break;
+                case "-f":
+                    try {
+                        finish = Long.parseLong(args[i + 1]);
+                    } catch (Exception e) {
+                        errorList.add(
+                                "\n\u001B[31mNieprawidlowy parametr finish (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna.\u001B[0m");
+                    }
+                    break;
+                case "-e":
+                    for (int j = i + 1; j < args.length; j++) {
+                        String email = args[j];
+                        if (!AVAILABLE_PARAMETERS.contains(email)) {
+                            if (isValidEmail(email)) {
+                                EMAILS.add(email);
+                            } else {
+                                errorList.add("\u001B[31mNieprawidlowy parametr email (" + email + "), zostanie zignorowany!\u001B[0m");
+                            }
+                        } else {
+                            break;
                         }
                     }
-                    else {
+                    break;
+                case "-s":
+                    sound = true;
+                    break;
+                case "-n":
+                    negation = true;
+                    break;
+                case "-p":
+                    if (checkValue) {
+                        System.out.println(
+                                "\u001B[31mParametr 'value bigger' lub 'value smaller' zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
+                    }
+                    for (int j = i + 1; j < args.length; j++) {
+                        String phrase = normalizeString(args[j]);
+                        if (!AVAILABLE_PARAMETERS.contains(phrase)) {
+                            PHRASES.add(phrase);
+                        } else {
+                            break;
+                        }
+                    }
+                    break;
+                case "-d":
+                    try {
+                        day = DayOfWeek.valueOf(args[i + 1]);
+                    } catch (IllegalArgumentException e) {
+                        errorList.add("\u001B[31mNieprawidlowy parametr 'day' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                    }
+                    break;
+                case "-h":
+                    try {
+                        hour = LocalTime.of(Integer.parseInt(args[i + 1]), 0);
+                    } catch (NumberFormatException e) {
+                        errorList.add("\u001B[31mNieprawidlowy parametr 'hour' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                    }
+                    break;
+                case "-date":
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                    try {
+                        date = LocalDate.parse(args[i + 1], formatter);
+                    } catch (DateTimeParseException e) {
+                        System.out.println("\u001B[31mNieprawidlowy parametr 'date' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                    }
+                    break;
+                case "-vb":
+                    if (!PHRASES.isEmpty()) {
+                        System.out.println(
+                                "\u001B[31mParametr 'value bigger' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
                         break;
                     }
-                }
-                break;
-            case "-s":
-                sound = true;
-                break;
-            case "-n":
-                negation = true;
-                break;
-            case "-p":
-                if (checkValue) {
-                    System.out.println(
-                            "\u001B[31mParametr 'value bigger' lub 'value smaller' zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
-                }
-                for (int j = i + 1; j < args.length; j++) {
-                    String phrase = normalizeString(args[j]);
-                    if (!AVAILABLE_PARAMETERS.contains(phrase)) {
-                        PHRASES.add(phrase);
-                    }
-                    else {
+                    preValue = normalizeString(args[i + 1]);
+                    thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
+                    checkValue = true;
+                    isBigger = true;
+                    break;
+                case "-vs":
+                    if (!PHRASES.isEmpty()) {
+                        System.out.println(
+                                "\u001B[31mParametr 'value smaller' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
                         break;
                     }
-                }
-                break;
-            case "-d":
-                try {
-                    day = DayOfWeek.valueOf(args[i + 1]);
-                } catch (IllegalArgumentException e) {
-                    errorList.add("\u001B[31mNieprawidlowy parametr 'day' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
-                }
-                break;
-            case "-h":
-                try {
-                    hour = LocalTime.of(Integer.parseInt(args[i + 1]), 0);
-                } catch (NumberFormatException e) {
-                    errorList.add("\u001B[31mNieprawidlowy parametr 'hour' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
-                }
-                break;
-            case "-date":
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-                try {
-                    date = LocalDate.parse(args[i + 1], formatter);
-                } catch (DateTimeParseException e) {
-                    System.out.println("\u001B[31mNieprawidlowy parametr 'date' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
-                }
-                break;
-            case "-vb":
-                if (!PHRASES.isEmpty()) {
-                    System.out.println(
-                            "\u001B[31mParametr 'value bigger' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
+                    preValue = normalizeString(args[i + 1]);
+                    thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
+                    checkValue = true;
+                    isBigger = false;
                     break;
-                }
-                preValue = normalizeString(args[i + 1]);
-                thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
-                checkValue = true;
-                isBigger = true;
-                break;
-            case "-vs":
-                if (!PHRASES.isEmpty()) {
-                    System.out.println(
-                            "\u001B[31mParametr 'value smaller' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
+                case "-inc":
+                    prefixIncrementation = normalizeString(args[i + 1]);
                     break;
-                }
-                preValue = normalizeString(args[i + 1]);
-                thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
-                checkValue = true;
-                isBigger = false;
-                break;
-            case "-inc":
-                prefixIncrementation = normalizeString(args[i + 1]);
-                break;
-            case "-debug":
-                debug = true;
-                break;
+                case "-bt":
+                    try {
+                        siteSize = Long.parseLong(args[i + 1]);
+                        biggerThan = true;
+                    } catch (Exception e) {
+                        errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
+                                + "), zostanie zignorowany!");
+                    }
+                    break;
+                case "-st":
+                    try {
+                        siteSize = Long.parseLong(args[i + 1]);
+                        smallerThan = true;
+                    } catch (Exception e) {
+                        errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
+                                + "), zostanie zignorowany!");
+                    }
+                    break;
+                case "-debug":
+                    debug = true;
+                    break;
             }
         }
         if (!errorList.isEmpty()) {
@@ -408,6 +430,12 @@ public class PageChange {
         if (hour != null) {
             checkHour();
         }
+        if (biggerThan) {
+            initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + siteSize + "\u001B[0m\n";
+        }
+        if (smallerThan) {
+            initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + siteSize + "\u001B[0m\n";
+        }
     }
 
     public static String connection(URL url) {
@@ -430,8 +458,7 @@ public class PageChange {
             if (responseCode >= 300 && responseCode < 400) {
                 String redirectUrl = conn.getHeaderField("Location");
                 return connection(new URL(redirectUrl));
-            }
-            else if (responseCode != 200) {
+            } else if (responseCode != 200) {
                 System.out.println("Blad HTTP: " + responseCode);
                 return "";
             }
@@ -502,8 +529,7 @@ public class PageChange {
             if (commaCounter == dotCounter) {
                 if (numberStr.indexOf(",") > numberStr.indexOf(".")) {
                     numberStr = numberStr.replaceAll("\\.", "");
-                }
-                else {
+                } else {
                     numberStr = numberStr.replaceAll("\\,", "");
                 }
             }
@@ -548,9 +574,15 @@ public class PageChange {
             result += isBigger ? "wieksza" : "mniejsza";
             result += " niz ustawiona wartosc progowa: '" + thresholdValue + "'.";
         }
-        else {
-            result += "sprawdzam czy podana strona sie zmienila... Dlugosc strony: " + tempPage.length();
+
+        if (biggerThan) {
+            result += "Wielkosc strony: " + tempPage.length() + " nie jest wieksza niz ustawiona wartosc progowa: " + siteSize + ".";
         }
+
+        if (smallerThan) {
+            result += "Wielkosc strony: " + tempPage.length() + " nie jest mniejsza niz ustawiona wartosc progowa: " + siteSize + ".";
+        }
+
         System.out.println(result + "\u001B[0m");
         sleep(interval * 1_000);
     }
@@ -569,27 +601,31 @@ public class PageChange {
         if (!PHRASES.isEmpty()) {
             if (negation) {
                 result += "nie znaleziono frazy: ";
-            }
-            else {
+            } else {
                 result += "znaleziono fraze: ";
             }
             result += phrase;
         }
-        else {
-            if (checkValue) {
-                result += "Znaleziona wartosc: " + actualValue + " jest ";
-                if (checkActualValueAgainstThresholdValue()) {
-                    result += "wieksza";
-                }
-                else {
-                    result += "mniejsza";
-                }
-                result += " niz ustawiona wartosc progowa: " + thresholdValue;
+        if (checkValue) {
+            result += "Znaleziona wartosc: " + actualValue + " jest ";
+            if (checkActualValueAgainstThresholdValue()) {
+                result += "wieksza";
+            } else {
+                result += "mniejsza";
             }
-            else {
-                result += "jest zmiana strony";
-            }
+            result += " niz ustawiona wartosc progowa: " + thresholdValue;
         }
+
+        if (biggerThan) {
+            result += "Wielkosc strony: " + tempPage.length() + " jest wieksza niz ustawiona wartosc progowa: " + siteSize;
+        }
+
+        if (smallerThan) {
+            result += "Wielkosc strony: " + tempPage.length() + " jest mniejsza niz ustawiona wartosc progowa: " + siteSize;
+        }
+
+        if (PHRASES.isEmpty() && !checkValue && !biggerThan && !smallerThan) result += "jest zmiana strony";
+
         System.out.println(result + "\n\u001B[0m");
         if (!EMAILS.isEmpty()) {
             for (String email : EMAILS) {
@@ -633,8 +669,7 @@ public class PageChange {
             if (searchedPhrase != null) {
                 if (negation) {
                     txt += "Nie znaleziono textu: " + searchedPhrase;
-                }
-                else {
+                } else {
                     txt += "Znaleziono text: " + searchedPhrase;
                 }
             }
