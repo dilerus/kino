@@ -420,7 +420,7 @@ public class PageChange {
             initialTxt += (isBigger) ? " wiekszej " : " mniejszej ";
             initialTxt += "niz: \u001B[35m" + thresholdValue + "\u001B[0m\n";
         }
-        System.out.println(initialTxt.substring(0, initialTxt.length() - 1));
+
         if (date != null) {
             checkDate();
         }
@@ -436,6 +436,7 @@ public class PageChange {
         if (smallerThan) {
             initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + siteSize + "\u001B[0m\n";
         }
+        System.out.println(initialTxt.substring(0, initialTxt.length() - 1));
     }
 
     public static String connection(URL url) {
