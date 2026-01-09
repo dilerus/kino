@@ -93,17 +93,25 @@ public class PageChange {
     }
 
     private static void loadIncrementationPhrase(String oldPage) {
-        long incrementationValue;
         if (oldPage.contains(prefixIncrementation)) {
-            Matcher matcher = Pattern.compile("\\D").matcher(oldPage.substring(oldPage.indexOf(prefixIncrementation) + prefixIncrementation.length(),
-                    oldPage.indexOf(prefixIncrementation) + prefixIncrementation.length() + 10));
-            incrementationValue = Long.parseLong(matcher.toString());
-            incrementationValue++;
-            PHRASES.add(prefixIncrementation + incrementationValue);
-            if (PHRASES.size() == 1) {
-                System.out.println("Szukane frazy:");
+            int startPos = oldPage.indexOf(prefixIncrementation) + prefixIncrementation.length();
+            int endPos = Math.min(startPos + 20, oldPage.length());
+            String textAfterPrefix = oldPage.substring(startPos, endPos);
+
+            Pattern pattern = Pattern.compile("\\d+");
+            Matcher matcher = pattern.matcher(textAfterPrefix);
+
+            if (matcher.find()) {
+                long incrementationValue = Long.parseLong(matcher.group());
+                incrementationValue++;
+                PHRASES.add(prefixIncrementation + incrementationValue);
+                if (PHRASES.size() == 1) {
+                    System.out.println("Szukane frazy:");
+                }
+                System.out.println("\u001B[35m" + prefixIncrementation + incrementationValue + "\u001B[0m\n");
+            } else {
+                System.out.println("\u001B[31mNie znaleziono wartosci numerycznej po prefixie: " + prefixIncrementation + "\u001B[0m");
             }
-            System.out.println("\u001B[35m" + prefixIncrementation + incrementationValue + "\u001B[0m\n");
         }
     }
 
@@ -163,7 +171,6 @@ public class PageChange {
             return;
         }
 
-
         if (tempPage.equals(oldPage)) {
             printDefeatAndSleep(tempPage);
         } else {
@@ -171,7 +178,6 @@ public class PageChange {
         }
 
     }
-
 
     private static String shortHelpText() {
         return "Wpisz --help aby uzyskac pomoc.";
@@ -420,7 +426,6 @@ public class PageChange {
             initialTxt += (isBigger) ? " wiekszej " : " mniejszej ";
             initialTxt += "niz: \u001B[35m" + thresholdValue + "\u001B[0m\n";
         }
-
         if (date != null) {
             checkDate();
         }
@@ -446,7 +451,7 @@ public class PageChange {
             conn.setRequestMethod("GET");
 
             // Nagłówki identyczne jak z curl
-            conn.setRequestProperty("Host", "www.decathlon.pl");
+            conn.setRequestProperty("Host", url.getHost());
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
             conn.setRequestProperty("Accept", "*/*");
             conn.setRequestProperty("Accept-Encoding", "identity"); // żeby uniknąć gzip
@@ -458,7 +463,12 @@ public class PageChange {
             int responseCode = conn.getResponseCode();
             if (responseCode >= 300 && responseCode < 400) {
                 String redirectUrl = conn.getHeaderField("Location");
-                return connection(new URL(redirectUrl));
+                try {
+                    return connection(new URI(redirectUrl).toURL());
+                } catch (URISyntaxException e) {
+                    System.out.println("Nieprawidlowy URL przekierowania: " + redirectUrl);
+                    return "";
+                }
             } else if (responseCode != 200) {
                 System.out.println("Blad HTTP: " + responseCode);
                 return "";
@@ -476,7 +486,6 @@ public class PageChange {
             System.out.println("Nie udalo sie polaczyc z podanym adresem: " + e.getMessage());
             return "";
         }
-
         return normalizeString(content.toString());
     }
 
@@ -514,24 +523,23 @@ public class PageChange {
             exit(30);
         }
         float number = 0;
-        String text = page.substring(position + preValue.length(), position + preValue.length() + 20);
-        Pattern pattern = Pattern.compile("[0-9,]+(\\.[0-9]+)?");
+        int endPos = Math.min(position + preValue.length() + 20, page.length());
+        String text = page.substring(position + preValue.length(), endPos);
+        Pattern pattern = Pattern.compile("[0-9,.]+(\\.[0-9]+)?");
         Matcher matcher = pattern.matcher(text);
         if (matcher.find()) {
             String numberStr = matcher.group();
             int commaCounter = countChar(numberStr, ',');
             int dotCounter = countChar(numberStr, '.');
             if (commaCounter > dotCounter) {
-                numberStr = numberStr.replaceAll("\\,", "");
-            }
-            if (commaCounter < dotCounter) {
+                numberStr = numberStr.replaceAll(",", "");
+            } else if (commaCounter < dotCounter) {
                 numberStr = numberStr.replaceAll("\\.", "");
-            }
-            if (commaCounter == dotCounter) {
+            } else if (commaCounter > 0) {
                 if (numberStr.indexOf(",") > numberStr.indexOf(".")) {
                     numberStr = numberStr.replaceAll("\\.", "");
                 } else {
-                    numberStr = numberStr.replaceAll("\\,", "");
+                    numberStr = numberStr.replaceAll(",", "");
                 }
             }
             number = Float.parseFloat(numberStr);
@@ -563,7 +571,7 @@ public class PageChange {
                     clip.close();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                System.out.println("Blad podczas odtwarzania dzwieku: " + e.getMessage());
             }
         }
     }
