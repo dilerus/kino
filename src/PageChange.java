@@ -199,8 +199,8 @@ public class PageChange {
                 -vb (value bigger) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w gore bedzie sukces
                 -vs (value smaller) - dwa parametry, pierewszy parametr to prefix przed wartoscia szukana, a drugi parametr jest wartoscia progowa po przekroczeniu ktorej w dol bedzie sukces
                 -inc (increment) - prefix przed wartoscia liczbowa, gdy ustawione, program laduje do szukanych fraz fraze zlozona z prefixu i wartosci zwiekszonej o jeden
-                -bt (bigger than) - jeśli wartosc strony jest wieksza niz podana, to sukces
-                -st (smaller than) - jeśli wartosc strony jest mniejsza niz podana, to sukces
+                -bt (bigger than) - jesli wartosc strony jest wieksza niz deklarowana wartosc, to sukces
+                -st (smaller than) - jesli wartosc strony jest mniejsza niz deklarowana wartosc, to sukces
                 -debug - jesli flaga obecna, program wyprintuje zawartosc strony
                 Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
