@@ -35,19 +35,16 @@ public class PageChange {
     private static long siteSize;
     private static boolean sound;
     private static boolean negation;
-    private static boolean biggerThan;
-    private static boolean smallerThan;
     private static DayOfWeek day;
     private static LocalTime hour;
     private static LocalDate date;
     private static String preValue;
     private static Float thresholdValue;
     private static Float actualValue;
-    private static boolean checkValue;
-    private static boolean isBigger;
     private static boolean debug;
     private static String prefixIncrementation;
     private static String tempPage;
+    private static Util.Mode mode;
 
     static {
         try {
@@ -70,7 +67,7 @@ public class PageChange {
             }
             initialEmptyPageProtection(i);
         }
-        if (prefixIncrementation != null) {
+        if ((mode == Util.Mode.VALUEBIGGER || mode == Util.Mode.VALUESMALLER) && prefixIncrementation != null) {
             loadIncrementationPhrase(oldPage);
         }
         int emptyPageIndicator = 1;
@@ -133,10 +130,10 @@ public class PageChange {
     }
 
     private static void check(String tempPage, String oldPage) {
-        if (!PHRASES.isEmpty()) {
+        if (mode == Util.Mode.PHRASES && !PHRASES.isEmpty()) {
             for (String phrase : PHRASES) {
                 if ((!negation && !tempPage.contains(phrase)) || (negation && tempPage.contains(phrase))) {
-                    print(tempPage, phrase);
+                    printDefeatPhrases(tempPage, phrase);
                 } else {
                     printSuccess(phrase);
                 }
@@ -145,16 +142,27 @@ public class PageChange {
             sleep(interval * 1_000);
             return;
         }
-        if (checkValue) {
+        if (mode == Util.Mode.VALUEBIGGER) {
             setActualValue(tempPage);
-            if ((checkActualValueAgainstThresholdValue() && isBigger) || (!checkActualValueAgainstThresholdValue() && !isBigger)) {
+            if (checkActualValueAgainstThresholdValue()) {
                 printSuccess(null);
             } else {
                 printDefeatAndSleep(tempPage);
             }
             return;
         }
-        if (biggerThan) {
+
+        if (mode == Util.Mode.VALUESMALLER) {
+            setActualValue(tempPage);
+            if (!checkActualValueAgainstThresholdValue()) {
+                printSuccess(null);
+            } else {
+                printDefeatAndSleep(tempPage);
+            }
+            return;
+        }
+
+        if (mode == Util.Mode.BIGGERTHAN) {
             if (tempPage.length() > siteSize) {
                 printSuccess(null);
             } else {
@@ -162,7 +170,7 @@ public class PageChange {
             }
             return;
         }
-        if (smallerThan) {
+        if (mode == Util.Mode.SMALLERTHAN) {
             if (tempPage.length() < siteSize) {
                 printSuccess(null);
             } else {
@@ -171,12 +179,13 @@ public class PageChange {
             return;
         }
 
-        if (tempPage.equals(oldPage)) {
-            printDefeatAndSleep(tempPage);
-        } else {
-            printSuccess(null);
+        if (mode == Util.Mode.CHECKVALUE) {
+            if (tempPage.equals(oldPage)) {
+                printDefeatAndSleep(tempPage);
+            } else {
+                printSuccess(null);
+            }
         }
-
     }
 
     private static String shortHelpText() {
@@ -257,10 +266,7 @@ public class PageChange {
                     negation = true;
                     break;
                 case "-p":
-                    if (checkValue) {
-                        System.out.println(
-                                "\u001B[31mParametr 'value bigger' lub 'value smaller' zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
-                    }
+                    if (mode == null) mode = Util.Mode.PHRASES;
                     for (int j = i + 1; j < args.length; j++) {
                         String phrase = normalizeString(args[j]);
                         if (!AVAILABLE_PARAMETERS.contains(phrase)) {
@@ -293,43 +299,32 @@ public class PageChange {
                     }
                     break;
                 case "-vb":
-                    if (!PHRASES.isEmpty()) {
-                        System.out.println(
-                                "\u001B[31mParametr 'value bigger' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
-                        break;
-                    }
+                    if (mode == null) mode = Util.Mode.VALUEBIGGER;
                     preValue = normalizeString(args[i + 1]);
                     thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
-                    checkValue = true;
-                    isBigger = true;
                     break;
                 case "-vs":
-                    if (!PHRASES.isEmpty()) {
-                        System.out.println(
-                                "\u001B[31mParametr 'value smaller' (" + args[i + 1] + ") zostanie zignorowany, bedzie sprawdzany parametr 'phrases'!\u001B[0m");
-                        break;
-                    }
+                    if (mode == null) mode = Util.Mode.VALUESMALLER;
                     preValue = normalizeString(args[i + 1]);
                     thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
-                    checkValue = true;
-                    isBigger = false;
                     break;
                 case "-inc":
+                    if (mode == null) mode = Util.Mode.PHRASES;
                     prefixIncrementation = normalizeString(args[i + 1]);
                     break;
                 case "-bt":
+                    if (mode == null) mode = Util.Mode.BIGGERTHAN;
                     try {
                         siteSize = Long.parseLong(args[i + 1]);
-                        biggerThan = true;
                     } catch (Exception e) {
                         errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
                                 + "), zostanie zignorowany!");
                     }
                     break;
                 case "-st":
+                    if (mode == null) mode = Util.Mode.SMALLERTHAN;
                     try {
                         siteSize = Long.parseLong(args[i + 1]);
-                        smallerThan = true;
                     } catch (Exception e) {
                         errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
                                 + "), zostanie zignorowany!");
@@ -340,6 +335,8 @@ public class PageChange {
                     break;
             }
         }
+
+        if (mode == null) mode = Util.Mode.CHECKVALUE;
         if (!errorList.isEmpty()) {
             System.out.println();
             for (String error : errorList) {
@@ -371,7 +368,7 @@ public class PageChange {
         }
     }
 
-    public static void exit(long sec) {
+    private static void exit(long sec) {
         System.out.println("Czekam " + sec + " sekund i zamykam program.");
         sleep(sec * 1_000);
         System.exit(0);
@@ -393,8 +390,10 @@ public class PageChange {
         String formattedFinish = decimalFormat.format(finish);
         String initialTxt = "\nPARAMETRY PROGRAMU:";
         initialTxt += "\nStrona: \u001B[35m" + url + "\u001B[0m\n";
+        initialTxt += "Tryb: \u001B[35m" + mode.getLabel() + "\u001B[0m\n";
         initialTxt += "Czestotliwosc odswiezania: \u001B[35m" + interval + "s \u001B[0m\n";
         initialTxt += "Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n";
+
         if (!EMAILS.isEmpty()) {
             initialTxt += "Adres/y wysylki emaila: \u001B[35m";
             for (String email : EMAILS) {
@@ -415,15 +414,16 @@ public class PageChange {
         if (negation) {
             initialTxt += "Negacja: \u001B[35m" + negation + "\u001B[0m\n";
         }
-        if (!PHRASES.isEmpty()) {
+        if (mode == Util.Mode.PHRASES && !PHRASES.isEmpty()) {
             initialTxt += "Szukane frazy:\n\u001B[35m";
             for (String phrase : PHRASES) {
                 initialTxt = initialTxt.concat("\u001B[35m" + phrase + "\u001B[0m\n");
             }
         }
-        if (checkValue && PHRASES.isEmpty()) {
+        if ((mode == Util.Mode.VALUEBIGGER || mode == Util.Mode.VALUESMALLER) && PHRASES.isEmpty()) {
             initialTxt += "Szukanie wartosci";
-            initialTxt += (isBigger) ? " wiekszej " : " mniejszej ";
+            if (mode == Util.Mode.VALUEBIGGER) initialTxt += " wiekszej";
+            if (mode == Util.Mode.VALUESMALLER) initialTxt += " mniejszej";
             initialTxt += "niz: \u001B[35m" + thresholdValue + "\u001B[0m\n";
         }
         if (date != null) {
@@ -435,16 +435,16 @@ public class PageChange {
         if (hour != null) {
             checkHour();
         }
-        if (biggerThan) {
+        if (mode == Util.Mode.BIGGERTHAN) {
             initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + siteSize + "\u001B[0m\n";
         }
-        if (smallerThan) {
+        if (mode == Util.Mode.SMALLERTHAN) {
             initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + siteSize + "\u001B[0m\n";
         }
         System.out.println(initialTxt.substring(0, initialTxt.length() - 1));
     }
 
-    public static String connection(URL url) {
+    private static String connection(URL url) {
         StringBuilder content = new StringBuilder();
         try {
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -547,7 +547,7 @@ public class PageChange {
         actualValue = number;
     }
 
-    public static int countChar(String text, char ch) {
+    private static int countChar(String text, char ch) {
         int count = 0;
         for (int i = 0; i < text.length(); i++) {
             if (text.charAt(i) == ch) {
@@ -578,36 +578,44 @@ public class PageChange {
 
     private static void printDefeatAndSleep(String tempPage) {
         String result = "\u001B[32m" + getTime() + " - ";
-        if (checkValue) {
-            result += "znaleziona wartosc: '" + actualValue + "' nie jest ";
-            result += isBigger ? "wieksza" : "mniejsza";
-            result += " niz ustawiona wartosc progowa: '" + thresholdValue + "'.";
-        }
 
-        if (biggerThan) {
-            result += "Wielkosc strony: " + tempPage.length() + " nie jest wieksza niz ustawiona wartosc progowa: " + siteSize + ".";
+        switch (mode) {
+            case Util.Mode.VALUEBIGGER:
+                result += "Znaleziona wartosc: '" + actualValue + "', nie jest wieksza niz ustawiona wartosc progowa: '" + thresholdValue + "'";
+                break;
+            case Util.Mode.VALUESMALLER:
+                result += "Znaleziona wartosc: '" + actualValue + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + thresholdValue + "'";
+                ;
+                break;
+            case Util.Mode.BIGGERTHAN:
+                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + siteSize + "'\u001B[0m";
+                break;
+            case Util.Mode.SMALLERTHAN:
+                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + siteSize + "'\u001B[0m";
+                break;
+            case Util.Mode.CHECKVALUE:
+                result += "Brak zmiany strony.";
+                break;
         }
-
-        if (smallerThan) {
-            result += "Wielkosc strony: " + tempPage.length() + " nie jest mniejsza niz ustawiona wartosc progowa: " + siteSize + ".";
+        if (mode != Util.Mode.SMALLERTHAN && mode != Util.Mode.BIGGERTHAN) {
+            System.out.println(result += "- wielkosc strony: " + tempPage.length() + "\u001B[0m");
         }
-
-        System.out.println(result + "\u001B[0m");
+        System.out.println(result);
         sleep(interval * 1_000);
     }
 
-    private static void print(String tempPage, String phrase) {
+    private static void printDefeatPhrases(String tempPage, String phrase) {
         String result = "\u001B[32m" + getTime() + " - szukam ";
         if (negation) {
             result += "braku ";
         }
         result += "tekstu: " + phrase + "... ";
-        System.out.println(result + "Dlugosc strony: " + tempPage.length() + "\u001B[0m");
+        System.out.println(result + "- wielkosc strony: " + tempPage.length() + "\u001B[0m");
     }
 
     private static void printSuccess(String phrase) {
         String result = "\u001B[01;41m" + getTime() + " - SUKCES - ";
-        if (!PHRASES.isEmpty()) {
+        if (mode == Util.Mode.PHRASES && !PHRASES.isEmpty()) {
             if (negation) {
                 result += "nie znaleziono frazy: ";
             } else {
@@ -615,7 +623,7 @@ public class PageChange {
             }
             result += phrase;
         }
-        if (checkValue) {
+        if (mode == Util.Mode.VALUEBIGGER || mode == Util.Mode.VALUESMALLER) {
             result += "Znaleziona wartosc: " + actualValue + " jest ";
             if (checkActualValueAgainstThresholdValue()) {
                 result += "wieksza";
@@ -625,15 +633,15 @@ public class PageChange {
             result += " niz ustawiona wartosc progowa: " + thresholdValue;
         }
 
-        if (biggerThan) {
+        if (mode == Util.Mode.BIGGERTHAN) {
             result += "Wielkosc strony: " + tempPage.length() + " jest wieksza niz ustawiona wartosc progowa: " + siteSize;
         }
 
-        if (smallerThan) {
+        if (mode == Util.Mode.SMALLERTHAN) {
             result += "Wielkosc strony: " + tempPage.length() + " jest mniejsza niz ustawiona wartosc progowa: " + siteSize;
         }
 
-        if (PHRASES.isEmpty() && !checkValue && !biggerThan && !smallerThan) result += "jest zmiana strony";
+        if (mode == Util.Mode.CHECKVALUE) result += "jest zmiana strony";
 
         System.out.println(result + "\n\u001B[0m");
         if (!EMAILS.isEmpty()) {
@@ -696,7 +704,7 @@ public class PageChange {
         }
     }
 
-    public static boolean isValidEmail(String email) {
+    private static boolean isValidEmail(String email) {
         Matcher matcher = Pattern.compile(EMAIL_REGEX).matcher(email);
         return matcher.matches();
     }
