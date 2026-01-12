@@ -117,7 +117,7 @@ public class PageChange {
             System.out.println(fullHelpText());
             System.exit(0);
         } else {
-            System.out.println(shortHelpText());
+            System.out.println("Wpisz --help aby uzyskac pomoc.");
         }
     }
 
@@ -186,10 +186,6 @@ public class PageChange {
                 printSuccess(null);
             }
         }
-    }
-
-    private static String shortHelpText() {
-        return "Wpisz --help aby uzyskac pomoc.";
     }
 
     private static String fullHelpText() {
