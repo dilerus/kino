@@ -14,84 +14,58 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PageChange {
-    private static final List<String> EMAILS = new ArrayList<>();
-    private static final List<String> PHRASES = new ArrayList<>();
-    private static final List<String> AVAILABLE_PARAMETERS =
-            Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs", "-inc", "-debug", "-bt", "-st");
-    private static final int EMPTY_PAGE_RETRIES = 3;
-    private static final String EMAIL_REGEX =
-            "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
-                    + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
-    private static URL url;
-    private static long interval = 10L;
-    private static long finish = 1_000_000L;
-    private static long siteSize;
-    private static boolean sound;
-    private static boolean negation;
-    private static DayOfWeek day;
-    private static LocalTime hour;
-    private static LocalDate date;
-    private static String preValue;
-    private static Float thresholdValue;
-    private static Float actualValue;
-    private static boolean debug;
-    private static String prefixIncrementation;
-    private static String tempPage;
-    private static Util.Mode mode;
+    private final Website website;
 
-    static {
-        try {
-            url = new URI("https://trojmiasto.pl").toURL();
-        } catch (URISyntaxException | MalformedURLException e) {
-            throw new RuntimeException(e);
-        }
+    public PageChange() {
+        this.website = new Website();
     }
 
     public static void main(String[] args) {
-        helpText(args);
-        argsParsing(args);
-        initialText();
+        PageChange pageChange = new PageChange();
+
+        pageChange.helpText(args);
+        pageChange.argsParsing(args);
+        pageChange.initialText();
 
         String oldPage = null;
         for (int i = 1; i <= 4; i++) {
-            oldPage = connection(url);
+            oldPage = pageChange.connection(pageChange.website.getUrl());
             if (!oldPage.isEmpty()) {
                 break;
             }
-            initialEmptyPageProtection(i);
+            pageChange.initialEmptyPageProtection(i);
         }
-        if ((mode == Util.Mode.VALUEBIGGER || mode == Util.Mode.VALUESMALLER) && prefixIncrementation != null) {
-            loadIncrementationPhrase(oldPage);
+        if (pageChange.website.getMode() == Util.Mode.PHRASES && pageChange.website.getPrefixIncrementation() != null) {
+            pageChange.loadIncrementationPhrase(oldPage);
         }
         int emptyPageIndicator = 1;
-        while (finish > 0) {
-            tempPage = connection(url);
-            if (emptyPageProtection(emptyPageIndicator, tempPage)) {
+        while (pageChange.website.getFinish() > 0) {
+            pageChange.website.setTempPage(pageChange.connection(pageChange.website.getUrl()));
+            if (pageChange.emptyPageProtection(emptyPageIndicator, pageChange.website.getTempPage())) {
                 emptyPageIndicator++;
-                sleep(interval * 1_000);
+                pageChange.sleep(pageChange.website.getInterval() * 1_000);
                 continue;
             }
-            if (debug) {
-                System.out.println(tempPage);
+            if (pageChange.website.isDebug()) {
+                System.out.println(pageChange.website.getTempPage());
             }
-            check(tempPage, oldPage);
-            finish--;
+            pageChange.check(pageChange.website.getTempPage(), oldPage);
+            pageChange.website.setFinish(pageChange.website.getFinish() - 1);
             emptyPageIndicator = 1;
         }
         System.out.println("Wartosc parametru 'finish' doszla do 0.");
-        exit(30);
+        pageChange.exit(30);
     }
 
-    private static void loadIncrementationPhrase(String oldPage) {
-        if (oldPage.contains(prefixIncrementation)) {
-            int startPos = oldPage.indexOf(prefixIncrementation) + prefixIncrementation.length();
+    private void loadIncrementationPhrase(String oldPage) {
+        if (oldPage.contains(this.website.getPrefixIncrementation())) {
+            int startPos = oldPage.indexOf(this.website.getPrefixIncrementation()) + this.website.getPrefixIncrementation().length();
             int endPos = Math.min(startPos + 20, oldPage.length());
             String textAfterPrefix = oldPage.substring(startPos, endPos);
 
@@ -101,18 +75,18 @@ public class PageChange {
             if (matcher.find()) {
                 long incrementationValue = Long.parseLong(matcher.group());
                 incrementationValue++;
-                PHRASES.add(prefixIncrementation + incrementationValue);
-                if (PHRASES.size() == 1) {
+                this.website.getPHRASES().add(this.website.getPrefixIncrementation() + incrementationValue);
+                if (this.website.getPHRASES().size() == 1) {
                     System.out.println("Szukane frazy:");
                 }
-                System.out.println("\u001B[35m" + prefixIncrementation + incrementationValue + "\u001B[0m\n");
+                System.out.println("\u001B[35m" + this.website.getPrefixIncrementation() + incrementationValue + "\u001B[0m\n");
             } else {
-                System.out.println("\u001B[31mNie znaleziono wartosci numerycznej po prefixie: " + prefixIncrementation + "\u001B[0m");
+                System.out.println("\u001B[31mNie znaleziono wartosci numerycznej po prefixie: " + this.website.getPrefixIncrementation() + "\u001B[0m");
             }
         }
     }
 
-    private static void helpText(String[] args) {
+    private void helpText(String[] args) {
         if (args != null && args.length == 1 && args[0].equals("--help")) {
             System.out.println(fullHelpText());
             System.exit(0);
@@ -121,7 +95,7 @@ public class PageChange {
         }
     }
 
-    private static void sleep(long millis) {
+    private void sleep(long millis) {
         try {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
@@ -129,20 +103,20 @@ public class PageChange {
         }
     }
 
-    private static void check(String tempPage, String oldPage) {
-        if (mode == Util.Mode.PHRASES && !PHRASES.isEmpty()) {
-            for (String phrase : PHRASES) {
-                if ((!negation && !tempPage.contains(phrase)) || (negation && tempPage.contains(phrase))) {
+    private void check(String tempPage, String oldPage) {
+        if (this.website.getMode() == Util.Mode.PHRASES && !this.website.getPHRASES().isEmpty()) {
+            for (String phrase : this.website.getPHRASES()) {
+                if ((!this.website.isNegation() && !tempPage.contains(phrase)) || (this.website.isNegation() && tempPage.contains(phrase))) {
                     printDefeatPhrases(tempPage, phrase);
                 } else {
                     printSuccess(phrase);
                 }
             }
             System.out.println();
-            sleep(interval * 1_000);
+            sleep(this.website.getInterval() * 1_000);
             return;
         }
-        if (mode == Util.Mode.VALUEBIGGER) {
+        if (this.website.getMode() == Util.Mode.VALUEBIGGER) {
             setActualValue(tempPage);
             if (checkActualValueAgainstThresholdValue()) {
                 printSuccess(null);
@@ -152,7 +126,7 @@ public class PageChange {
             return;
         }
 
-        if (mode == Util.Mode.VALUESMALLER) {
+        if (this.website.getMode() == Util.Mode.VALUESMALLER) {
             setActualValue(tempPage);
             if (!checkActualValueAgainstThresholdValue()) {
                 printSuccess(null);
@@ -162,16 +136,16 @@ public class PageChange {
             return;
         }
 
-        if (mode == Util.Mode.BIGGERTHAN) {
-            if (tempPage.length() > siteSize) {
+        if (this.website.getMode() == Util.Mode.BIGGERTHAN) {
+            if (tempPage.length() > this.website.getSiteSize()) {
                 printSuccess(null);
             } else {
                 printDefeatAndSleep(tempPage);
             }
             return;
         }
-        if (mode == Util.Mode.SMALLERTHAN) {
-            if (tempPage.length() < siteSize) {
+        if (this.website.getMode() == Util.Mode.SMALLERTHAN) {
+            if (tempPage.length() < this.website.getSiteSize()) {
                 printSuccess(null);
             } else {
                 printDefeatAndSleep(tempPage);
@@ -179,7 +153,7 @@ public class PageChange {
             return;
         }
 
-        if (mode == Util.Mode.CHECKVALUE) {
+        if (this.website.getMode() == Util.Mode.CHECKVALUE) {
             if (tempPage.equals(oldPage)) {
                 printDefeatAndSleep(tempPage);
             } else {
@@ -188,7 +162,7 @@ public class PageChange {
         }
     }
 
-    private static String fullHelpText() {
+    private String fullHelpText() {
         return """
                 Dostepne parametry:
                 -u (URL) - adres sprawdzanej strony (domyslnie: https://trojmiasto.pl)
@@ -210,7 +184,7 @@ public class PageChange {
                 Przyklad:  -u https://helios.pl -i 20 -f 100 -e example@gmail.com -s -p <strong>10</strong> <strong>11</strong>""";
     }
 
-    private static void argsParsing(String[] args) {
+    private void argsParsing(String[] args) {
         if (args == null) {
             return;
         }
@@ -219,7 +193,7 @@ public class PageChange {
             switch (args[i]) {
                 case "-u":
                     try {
-                        url = new URI(args[i + 1]).toURL();
+                        this.website.setUrl(new URI(args[i + 1]).toURL());
                     } catch (RuntimeException | URISyntaxException | MalformedURLException e) {
                         errorList.add(
                                 "\n\u001B[31mNieprawidlowy parametr URL (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
@@ -227,7 +201,7 @@ public class PageChange {
                     break;
                 case "-i":
                     try {
-                        interval = Long.parseLong(args[i + 1]);
+                        this.website.setInterval(Long.parseLong(args[i + 1]));
                     } catch (Exception e) {
                         errorList.add("\n\u001B[31mNieprawidlowy parametr interwal (" + args[i + 1]
                                 + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
@@ -235,7 +209,7 @@ public class PageChange {
                     break;
                 case "-f":
                     try {
-                        finish = Long.parseLong(args[i + 1]);
+                        this.website.setFinish(Long.parseLong(args[i + 1]));
                     } catch (Exception e) {
                         errorList.add(
                                 "\n\u001B[31mNieprawidlowy parametr finish (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna.\u001B[0m");
@@ -244,9 +218,9 @@ public class PageChange {
                 case "-e":
                     for (int j = i + 1; j < args.length; j++) {
                         String email = args[j];
-                        if (!AVAILABLE_PARAMETERS.contains(email)) {
+                        if (!this.website.getAVAILABLE_PARAMETERS().contains(email)) {
                             if (isValidEmail(email)) {
-                                EMAILS.add(email);
+                                this.website.getEMAILS().add(email);
                             } else {
                                 errorList.add("\u001B[31mNieprawidlowy parametr email (" + email + "), zostanie zignorowany!\u001B[0m");
                             }
@@ -256,17 +230,17 @@ public class PageChange {
                     }
                     break;
                 case "-s":
-                    sound = true;
+                    this.website.setSound(true);
                     break;
                 case "-n":
-                    negation = true;
+                    this.website.setNegation(true);
                     break;
                 case "-p":
-                    if (mode == null) mode = Util.Mode.PHRASES;
+                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.PHRASES);
                     for (int j = i + 1; j < args.length; j++) {
                         String phrase = normalizeString(args[j]);
-                        if (!AVAILABLE_PARAMETERS.contains(phrase)) {
-                            PHRASES.add(phrase);
+                        if (!this.website.getAVAILABLE_PARAMETERS().contains(phrase)) {
+                            this.website.getPHRASES().add(phrase);
                         } else {
                             break;
                         }
@@ -274,14 +248,14 @@ public class PageChange {
                     break;
                 case "-d":
                     try {
-                        day = DayOfWeek.valueOf(args[i + 1]);
+                        this.website.setDay(DayOfWeek.valueOf(args[i + 1]));
                     } catch (IllegalArgumentException e) {
                         errorList.add("\u001B[31mNieprawidlowy parametr 'day' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
                     }
                     break;
                 case "-h":
                     try {
-                        hour = LocalTime.of(Integer.parseInt(args[i + 1]), 0);
+                        this.website.setHour(LocalTime.of(Integer.parseInt(args[i + 1]), 0));
                     } catch (NumberFormatException e) {
                         errorList.add("\u001B[31mNieprawidlowy parametr 'hour' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
                     }
@@ -289,50 +263,50 @@ public class PageChange {
                 case "-date":
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
                     try {
-                        date = LocalDate.parse(args[i + 1], formatter);
+                        this.website.setDate(LocalDate.parse(args[i + 1], formatter));
                     } catch (DateTimeParseException e) {
                         System.out.println("\u001B[31mNieprawidlowy parametr 'date' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
                     }
                     break;
                 case "-vb":
-                    if (mode == null) mode = Util.Mode.VALUEBIGGER;
-                    preValue = normalizeString(args[i + 1]);
-                    thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
+                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.VALUEBIGGER);
+                    this.website.setPreValue(normalizeString(args[i + 1]));
+                    this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
                     break;
                 case "-vs":
-                    if (mode == null) mode = Util.Mode.VALUESMALLER;
-                    preValue = normalizeString(args[i + 1]);
-                    thresholdValue = Float.parseFloat(args[i + 2].replaceAll(",", "."));
+                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.VALUESMALLER);
+                    this.website.setPreValue(normalizeString(args[i + 1]));
+                    this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
                     break;
                 case "-inc":
-                    if (mode == null) mode = Util.Mode.PHRASES;
-                    prefixIncrementation = normalizeString(args[i + 1]);
+                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.PHRASES);
+                    this.website.setPrefixIncrementation(normalizeString(args[i + 1]));
                     break;
                 case "-bt":
-                    if (mode == null) mode = Util.Mode.BIGGERTHAN;
+                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.BIGGERTHAN);
                     try {
-                        siteSize = Long.parseLong(args[i + 1]);
+                        this.website.setSiteSize(Long.parseLong(args[i + 1]));
                     } catch (Exception e) {
                         errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
                                 + "), zostanie zignorowany!");
                     }
                     break;
                 case "-st":
-                    if (mode == null) mode = Util.Mode.SMALLERTHAN;
+                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.SMALLERTHAN);
                     try {
-                        siteSize = Long.parseLong(args[i + 1]);
+                        this.website.setSiteSize(Long.parseLong(args[i + 1]));
                     } catch (Exception e) {
                         errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
                                 + "), zostanie zignorowany!");
                     }
                     break;
                 case "-debug":
-                    debug = true;
+                    this.website.setDebug(true);
                     break;
             }
         }
 
-        if (mode == null) mode = Util.Mode.CHECKVALUE;
+        if (this.website.getMode() == null) this.website.setMode(Util.Mode.CHECKVALUE);
         if (!errorList.isEmpty()) {
             System.out.println();
             for (String error : errorList) {
@@ -341,106 +315,106 @@ public class PageChange {
         }
     }
 
-    private static String normalizeString(String input) {
+    private String normalizeString(String input) {
         input = input.toLowerCase().trim().replaceAll("\\s", "").replaceAll("\"", "");
         String normalizedString = Normalizer.normalize(input, Normalizer.Form.NFD);
         return Pattern.compile("\\p{InCombiningDiacriticalMarks}+").matcher(normalizedString).replaceAll("");
     }
 
-    private static void checkHour() {
+    private void checkHour() {
         LocalTime currentTime = LocalTime.now();
-        if (!currentTime.isAfter(hour)) {
-            long secondsDifference = Duration.between(currentTime, hour).abs().getSeconds();
-            System.out.println("\u001B[31mNie jest po godzinie " + hour + ", usypiam program na " + secondsDifference / 60 + " minut.\u001B[0m");
+        if (!currentTime.isAfter(this.website.getHour())) {
+            long secondsDifference = Duration.between(currentTime, this.website.getHour()).abs().getSeconds();
+            System.out.println("\u001B[31mNie jest po godzinie " + this.website.getHour() + ", usypiam program na " + secondsDifference / 60 + " minut.\u001B[0m");
             sleep(secondsDifference * 1_000);
         }
     }
 
-    private static void checkDay() {
+    private void checkDay() {
         DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
-        if (day != dayOfWeek) {
-            System.out.println("\u001B[31mDzis nie jest " + day + ", dzis jest " + dayOfWeek + "!\u001B[0m");
+        if (this.website.getDay() != dayOfWeek) {
+            System.out.println("\u001B[31mDzis nie jest " + this.website.getDay() + ", dzis jest " + dayOfWeek + "!\u001B[0m");
             exit(30);
         }
     }
 
-    private static void exit(long sec) {
+    private void exit(long sec) {
         System.out.println("Czekam " + sec + " sekund i zamykam program.");
         sleep(sec * 1_000);
         System.exit(0);
     }
 
-    private static void checkDate() {
+    private void checkDate() {
         LocalDate currentDate = LocalDate.now();
         DateTimeFormatter formattedCurrentDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        if (currentDate.isBefore(date)) {
+        if (currentDate.isBefore(this.website.getDate())) {
             System.out.println(
-                    "\u001B[31mDzis nie jest " + formattedCurrentDate.format(date) + " lub pozniej, dzis jest dopiero " + formattedCurrentDate.format(
+                    "\u001B[31mDzis nie jest " + formattedCurrentDate.format(this.website.getDate()) + " lub pozniej, dzis jest dopiero " + formattedCurrentDate.format(
                             currentDate) + "!\u001B[0m");
             exit(30);
         }
     }
 
-    private static void initialText() {
+    private void initialText() {
         DecimalFormat decimalFormat = new DecimalFormat("#,###");
-        String formattedFinish = decimalFormat.format(finish);
+        String formattedFinish = decimalFormat.format(this.website.getFinish());
         String initialTxt = "\nPARAMETRY PROGRAMU:";
-        initialTxt += "\nStrona: \u001B[35m" + url + "\u001B[0m\n";
-        initialTxt += "Tryb: \u001B[35m" + mode.getLabel() + "\u001B[0m\n";
-        initialTxt += "Czestotliwosc odswiezania: \u001B[35m" + interval + "s \u001B[0m\n";
+        initialTxt += "\nStrona: \u001B[35m" + this.website.getUrl() + "\u001B[0m\n";
+        initialTxt += "Tryb: \u001B[35m" + this.website.getMode().getLabel() + "\u001B[0m\n";
+        initialTxt += "Czestotliwosc odswiezania: \u001B[35m" + this.website.getInterval() + "s \u001B[0m\n";
         initialTxt += "Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n";
 
-        if (!EMAILS.isEmpty()) {
+        if (!this.website.getEMAILS().isEmpty()) {
             initialTxt += "Adres/y wysylki emaila: \u001B[35m";
-            for (String email : EMAILS) {
+            for (String email : this.website.getEMAILS()) {
                 initialTxt = initialTxt.concat(email + ", ");
             }
             initialTxt = initialTxt.substring(0, initialTxt.length() - 2).concat("\u001B[0m\n");
         }
-        initialTxt += "Dzwiek: \u001B[35m" + sound + "\u001B[0m\n";
-        if (date != null) {
-            initialTxt += "Po dacie: \u001B[35m" + DateTimeFormatter.ofPattern("dd-MM-yyyy").format(date) + "\u001B[0m\n";
+        initialTxt += "Dzwiek: \u001B[35m" + this.website.isSound() + "\u001B[0m\n";
+        if (this.website.getDate() != null) {
+            initialTxt += "Po dacie: \u001B[35m" + DateTimeFormatter.ofPattern("dd-MM-yyyy").format(this.website.getDate()) + "\u001B[0m\n";
         }
-        if (day != null) {
-            initialTxt += "Dzien tygodnia: \u001B[35m" + day + "\u001B[0m\n";
+        if (this.website.getDay() != null) {
+            initialTxt += "Dzien tygodnia: \u001B[35m" + this.website.getDay() + "\u001B[0m\n";
         }
-        if (hour != null) {
-            initialTxt += "Godzina: \u001B[35m" + hour + "\u001B[0m\n";
+        if (this.website.getHour() != null) {
+            initialTxt += "Godzina: \u001B[35m" + this.website.getHour() + "\u001B[0m\n";
         }
-        if (negation) {
-            initialTxt += "Negacja: \u001B[35m" + negation + "\u001B[0m\n";
+        if (this.website.isNegation()) {
+            initialTxt += "Negacja: \u001B[35m" + this.website.isNegation() + "\u001B[0m\n";
         }
-        if (mode == Util.Mode.PHRASES && !PHRASES.isEmpty()) {
+        if (this.website.getMode() == Util.Mode.PHRASES && !this.website.getPHRASES().isEmpty()) {
             initialTxt += "Szukane frazy:\n\u001B[35m";
-            for (String phrase : PHRASES) {
+            for (String phrase : this.website.getPHRASES()) {
                 initialTxt = initialTxt.concat("\u001B[35m" + phrase + "\u001B[0m\n");
             }
         }
-        if ((mode == Util.Mode.VALUEBIGGER || mode == Util.Mode.VALUESMALLER) && PHRASES.isEmpty()) {
+        if ((this.website.getMode() == Util.Mode.VALUEBIGGER || this.website.getMode() == Util.Mode.VALUESMALLER) && this.website.getPHRASES().isEmpty()) {
             initialTxt += "Szukanie wartosci";
-            if (mode == Util.Mode.VALUEBIGGER) initialTxt += " wiekszej";
-            if (mode == Util.Mode.VALUESMALLER) initialTxt += " mniejszej";
-            initialTxt += "niz: \u001B[35m" + thresholdValue + "\u001B[0m\n";
+            if (this.website.getMode() == Util.Mode.VALUEBIGGER) initialTxt += " wiekszej";
+            if (this.website.getMode() == Util.Mode.VALUESMALLER) initialTxt += " mniejszej";
+            initialTxt += "niz: \u001B[35m" + this.website.getThresholdValue() + "\u001B[0m\n";
         }
-        if (date != null) {
+        if (this.website.getDate() != null) {
             checkDate();
         }
-        if (day != null) {
+        if (this.website.getDay() != null) {
             checkDay();
         }
-        if (hour != null) {
+        if (this.website.getHour() != null) {
             checkHour();
         }
-        if (mode == Util.Mode.BIGGERTHAN) {
-            initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + siteSize + "\u001B[0m\n";
+        if (this.website.getMode() == Util.Mode.BIGGERTHAN) {
+            initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
         }
-        if (mode == Util.Mode.SMALLERTHAN) {
-            initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + siteSize + "\u001B[0m\n";
+        if (this.website.getMode() == Util.Mode.SMALLERTHAN) {
+            initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
         }
         System.out.println(initialTxt.substring(0, initialTxt.length() - 1));
     }
 
-    private static String connection(URL url) {
+    private String connection(URL url) {
         StringBuilder content = new StringBuilder();
         try {
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -485,16 +459,16 @@ public class PageChange {
         return normalizeString(content.toString());
     }
 
-    private static void initialEmptyPageProtection(int i) {
+    private void initialEmptyPageProtection(int i) {
         System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
         if (i > 3) {
             exit(30);
         }
-        System.out.println(" Ponawiam probe za 30s. (" + i + "/" + EMPTY_PAGE_RETRIES + ")");
+        System.out.println(" Ponawiam probe za 30s. (" + i + "/" + this.website.getEMPTY_PAGE_RETRIES() + ")");
         sleep(30_000);
     }
 
-    private static boolean emptyPageProtection(int number, String tempPage) {
+    private boolean emptyPageProtection(int number, String tempPage) {
         if (tempPage.isEmpty()) {
             System.out.println(getTime() + " - " + number + " proba - Pusta strona... Prawdopodobnie chwilowy brak internetu lub blad serwera.");
             return true;
@@ -502,25 +476,25 @@ public class PageChange {
         return false;
     }
 
-    private static String getTime() {
+    private String getTime() {
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
         return now.format(formatter);
     }
 
-    private static boolean checkActualValueAgainstThresholdValue() {
-        return actualValue.compareTo(thresholdValue) > 0;
+    private boolean checkActualValueAgainstThresholdValue() {
+        return this.website.getActualValue().compareTo(this.website.getThresholdValue()) > 0;
     }
 
-    private static void setActualValue(String page) {
-        int position = page.indexOf(preValue);
+    private void setActualValue(String page) {
+        int position = page.indexOf(this.website.getPreValue());
         if (position == -1) {
-            System.out.println("Fragment '" + preValue + "' nie zostal znaleziony na stronie.");
+            System.out.println("Fragment '" + this.website.getPreValue() + "' nie zostal znaleziony na stronie.");
             exit(30);
         }
         float number = 0;
-        int endPos = Math.min(position + preValue.length() + 20, page.length());
-        String text = page.substring(position + preValue.length(), endPos);
+        int endPos = Math.min(position + this.website.getPreValue().length() + 20, page.length());
+        String text = page.substring(position + this.website.getPreValue().length(), endPos);
         Pattern pattern = Pattern.compile("[0-9,.]+(\\.[0-9]+)?");
         Matcher matcher = pattern.matcher(text);
         if (matcher.find()) {
@@ -540,10 +514,10 @@ public class PageChange {
             }
             number = Float.parseFloat(numberStr);
         }
-        actualValue = number;
+        this.website.setActualValue(number);
     }
 
-    private static int countChar(String text, char ch) {
+    private int countChar(String text, char ch) {
         int count = 0;
         for (int i = 0; i < text.length(); i++) {
             if (text.charAt(i) == ch) {
@@ -553,7 +527,7 @@ public class PageChange {
         return count;
     }
 
-    private static void playSound(int repeats) {
+    private void playSound(int repeats) {
         for (int j = 0; j < repeats; j++) {
             try {
                 InputStream inputStream = PageChange.class.getResourceAsStream("/resources/tada.wav");
@@ -572,87 +546,86 @@ public class PageChange {
         }
     }
 
-    private static void printDefeatAndSleep(String tempPage) {
+    private void printDefeatAndSleep(String tempPage) {
         String result = "\u001B[32m" + getTime() + " - ";
 
-        switch (mode) {
+        switch (this.website.getMode()) {
             case Util.Mode.VALUEBIGGER:
-                result += "Znaleziona wartosc: '" + actualValue + "', nie jest wieksza niz ustawiona wartosc progowa: '" + thresholdValue + "'";
+                result += "Znaleziona wartosc: '" + this.website.getActualValue() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + this.website.getThresholdValue() + "'";
                 break;
             case Util.Mode.VALUESMALLER:
-                result += "Znaleziona wartosc: '" + actualValue + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + thresholdValue + "'";
-                ;
+                result += "Znaleziona wartosc: '" + this.website.getActualValue() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + this.website.getThresholdValue() + "'";
                 break;
             case Util.Mode.BIGGERTHAN:
-                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + siteSize + "'\u001B[0m";
+                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + this.website.getSiteSize() + "'\u001B[0m";
                 break;
             case Util.Mode.SMALLERTHAN:
-                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + siteSize + "'\u001B[0m";
+                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + this.website.getSiteSize() + "'\u001B[0m";
                 break;
             case Util.Mode.CHECKVALUE:
                 result += "Brak zmiany strony.";
                 break;
         }
-        if (mode != Util.Mode.SMALLERTHAN && mode != Util.Mode.BIGGERTHAN) {
+        if (this.website.getMode() != Util.Mode.SMALLERTHAN && this.website.getMode() != Util.Mode.BIGGERTHAN) {
             System.out.println(result += "- wielkosc strony: " + tempPage.length() + "\u001B[0m");
         }
         System.out.println(result);
-        sleep(interval * 1_000);
+        sleep(this.website.getInterval() * 1_000);
     }
 
-    private static void printDefeatPhrases(String tempPage, String phrase) {
+    private void printDefeatPhrases(String tempPage, String phrase) {
         String result = "\u001B[32m" + getTime() + " - szukam ";
-        if (negation) {
+        if (this.website.isNegation()) {
             result += "braku ";
         }
         result += "tekstu: " + phrase + "... ";
         System.out.println(result + "- wielkosc strony: " + tempPage.length() + "\u001B[0m");
     }
 
-    private static void printSuccess(String phrase) {
+    private void printSuccess(String phrase) {
         String result = "\u001B[01;41m" + getTime() + " - SUKCES - ";
-        if (mode == Util.Mode.PHRASES && !PHRASES.isEmpty()) {
-            if (negation) {
+        if (this.website.getMode() == Util.Mode.PHRASES && !this.website.getPHRASES().isEmpty()) {
+            if (this.website.isNegation()) {
                 result += "nie znaleziono frazy: ";
             } else {
                 result += "znaleziono fraze: ";
             }
             result += phrase;
         }
-        if (mode == Util.Mode.VALUEBIGGER || mode == Util.Mode.VALUESMALLER) {
-            result += "Znaleziona wartosc: " + actualValue + " jest ";
+        if (this.website.getMode() == Util.Mode.VALUEBIGGER || this.website.getMode() == Util.Mode.VALUESMALLER) {
+            result += "Znaleziona wartosc: " + this.website.getActualValue() + " jest ";
             if (checkActualValueAgainstThresholdValue()) {
                 result += "wieksza";
             } else {
                 result += "mniejsza";
             }
-            result += " niz ustawiona wartosc progowa: " + thresholdValue;
+            result += " niz ustawiona wartosc progowa: " + this.website.getThresholdValue();
         }
 
-        if (mode == Util.Mode.BIGGERTHAN) {
-            result += "Wielkosc strony: " + tempPage.length() + " jest wieksza niz ustawiona wartosc progowa: " + siteSize;
+        if (this.website.getMode() == Util.Mode.BIGGERTHAN) {
+            result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest wieksza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
         }
 
-        if (mode == Util.Mode.SMALLERTHAN) {
-            result += "Wielkosc strony: " + tempPage.length() + " jest mniejsza niz ustawiona wartosc progowa: " + siteSize;
+        if (this.website.getMode() == Util.Mode.SMALLERTHAN) {
+            result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest mniejsza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
         }
 
-        if (mode == Util.Mode.CHECKVALUE) result += "jest zmiana strony";
+        if (this.website.getMode() == Util.Mode.CHECKVALUE) result += "jest zmiana strony";
 
         System.out.println(result + "\n\u001B[0m");
-        if (!EMAILS.isEmpty()) {
-            for (String email : EMAILS) {
-                sendMail(email, url, phrase, 1, 5);
+        if (!this.website.getEMAILS().isEmpty()) {
+            for (String email : this.website.getEMAILS()) {
+                sendMail(email, this.website.getUrl(), phrase, 1, 5);
             }
         }
-        if (sound) {
+        if (this.website.isSound()) {
             playSound(10_000);
         }
         exit(3_600);
     }
 
-    private static void sendMail(String email, URL urlString, String searchedPhrase, int retries, int retriesLimit) {
-        if (sound) {
+    private void sendMail(String email, URL urlString, String searchedPhrase, int retries, int retriesLimit) {
+        if (this.website.isSound()) {
             playSound(3);
         }
         String host = "smtp.gmail.com";
@@ -680,7 +653,7 @@ public class PageChange {
             String txt = "Zmiana strony!!!\n";
             txt += "Strona: " + urlString + "\n";
             if (searchedPhrase != null) {
-                if (negation) {
+                if (this.website.isNegation()) {
                     txt += "Nie znaleziono textu: " + searchedPhrase;
                 } else {
                     txt += "Znaleziono text: " + searchedPhrase;
@@ -700,8 +673,8 @@ public class PageChange {
         }
     }
 
-    private static boolean isValidEmail(String email) {
-        Matcher matcher = Pattern.compile(EMAIL_REGEX).matcher(email);
+    private boolean isValidEmail(String email) {
+        Matcher matcher = Pattern.compile(this.website.getEMAIL_REGEX()).matcher(email);
         return matcher.matches();
     }
 }
