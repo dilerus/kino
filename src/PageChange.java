@@ -104,61 +104,57 @@ public class PageChange {
     }
 
     private void check(String tempPage, String oldPage) {
-        if (this.website.getMode() == Util.Mode.PHRASES && !this.website.getPHRASES().isEmpty()) {
-            for (String phrase : this.website.getPHRASES()) {
-                if ((!this.website.isNegation() && !tempPage.contains(phrase)) || (this.website.isNegation() && tempPage.contains(phrase))) {
-                    printDefeatPhrases(tempPage, phrase);
-                } else {
-                    printSuccess(phrase);
+        switch (this.website.getMode()) {
+            case PHRASES:
+                if (!this.website.getPHRASES().isEmpty()) {
+                    for (String phrase : this.website.getPHRASES()) {
+                        if ((!this.website.isNegation() && !tempPage.contains(phrase)) || (this.website.isNegation() && tempPage.contains(phrase))) {
+                            printDefeatPhrases(tempPage, phrase);
+                        } else {
+                            printSuccess(phrase);
+                        }
+                    }
+                    System.out.println();
+                    sleep(this.website.getInterval() * 1_000);
                 }
-            }
-            System.out.println();
-            sleep(this.website.getInterval() * 1_000);
-            return;
-        }
-        if (this.website.getMode() == Util.Mode.VALUEBIGGER) {
-            setActualValue(tempPage);
-            if (checkActualValueAgainstThresholdValue()) {
-                printSuccess(null);
-            } else {
-                printDefeatAndSleep(tempPage);
-            }
-            return;
-        }
-
-        if (this.website.getMode() == Util.Mode.VALUESMALLER) {
-            setActualValue(tempPage);
-            if (!checkActualValueAgainstThresholdValue()) {
-                printSuccess(null);
-            } else {
-                printDefeatAndSleep(tempPage);
-            }
-            return;
-        }
-
-        if (this.website.getMode() == Util.Mode.BIGGERTHAN) {
-            if (tempPage.length() > this.website.getSiteSize()) {
-                printSuccess(null);
-            } else {
-                printDefeatAndSleep(tempPage);
-            }
-            return;
-        }
-        if (this.website.getMode() == Util.Mode.SMALLERTHAN) {
-            if (tempPage.length() < this.website.getSiteSize()) {
-                printSuccess(null);
-            } else {
-                printDefeatAndSleep(tempPage);
-            }
-            return;
-        }
-
-        if (this.website.getMode() == Util.Mode.CHECKVALUE) {
-            if (tempPage.equals(oldPage)) {
-                printDefeatAndSleep(tempPage);
-            } else {
-                printSuccess(null);
-            }
+                return;
+            case VALUEBIGGER:
+                setActualValue(tempPage);
+                if (checkActualValueAgainstThresholdValue()) {
+                    printSuccess(null);
+                } else {
+                    printDefeatAndSleep(tempPage);
+                }
+                return;
+            case VALUESMALLER:
+                setActualValue(tempPage);
+                if (!checkActualValueAgainstThresholdValue()) {
+                    printSuccess(null);
+                } else {
+                    printDefeatAndSleep(tempPage);
+                }
+                return;
+            case BIGGERTHAN:
+                if (tempPage.length() > this.website.getSiteSize()) {
+                    printSuccess(null);
+                } else {
+                    printDefeatAndSleep(tempPage);
+                }
+                return;
+            case SMALLERTHAN:
+                if (tempPage.length() < this.website.getSiteSize()) {
+                    printSuccess(null);
+                } else {
+                    printDefeatAndSleep(tempPage);
+                }
+                return;
+            case CHECKVALUE:
+                if (tempPage.equals(oldPage)) {
+                    printDefeatAndSleep(tempPage);
+                } else {
+                    printSuccess(null);
+                }
+                break;
         }
     }
 
@@ -269,35 +265,45 @@ public class PageChange {
                     }
                     break;
                 case "-vb":
-                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.VALUEBIGGER);
-                    this.website.setPreValue(normalizeString(args[i + 1]));
-                    this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
+                    if (this.website.getMode() == null) {
+                        this.website.setMode(Util.Mode.VALUEBIGGER);
+                        this.website.setPreValue(normalizeString(args[i + 1]));
+                        this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
+                    }
                     break;
                 case "-vs":
-                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.VALUESMALLER);
-                    this.website.setPreValue(normalizeString(args[i + 1]));
-                    this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
+                    if (this.website.getMode() == null) {
+                        this.website.setMode(Util.Mode.VALUESMALLER);
+                        this.website.setPreValue(normalizeString(args[i + 1]));
+                        this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
+                    }
                     break;
                 case "-inc":
-                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.PHRASES);
-                    this.website.setPrefixIncrementation(normalizeString(args[i + 1]));
+                    if (this.website.getMode() == null) {
+                        this.website.setMode(Util.Mode.PHRASES);
+                        this.website.setPrefixIncrementation(normalizeString(args[i + 1]));
+                    }
                     break;
                 case "-bt":
-                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.BIGGERTHAN);
-                    try {
-                        this.website.setSiteSize(Long.parseLong(args[i + 1]));
-                    } catch (Exception e) {
-                        errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
-                                + "), zostanie zignorowany!");
+                    if (this.website.getMode() == null) {
+                        this.website.setMode(Util.Mode.BIGGERTHAN);
+                        try {
+                            this.website.setSiteSize(Long.parseLong(args[i + 1]));
+                        } catch (Exception e) {
+                            errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
+                                    + "), zostanie zignorowany!");
+                        }
                     }
                     break;
                 case "-st":
-                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.SMALLERTHAN);
-                    try {
-                        this.website.setSiteSize(Long.parseLong(args[i + 1]));
-                    } catch (Exception e) {
-                        errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
-                                + "), zostanie zignorowany!");
+                    if (this.website.getMode() == null) {
+                        this.website.setMode(Util.Mode.SMALLERTHAN);
+                        try {
+                            this.website.setSiteSize(Long.parseLong(args[i + 1]));
+                        } catch (Exception e) {
+                            errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
+                                    + "), zostanie zignorowany!");
+                        }
                     }
                     break;
                 case "-debug":
@@ -305,7 +311,6 @@ public class PageChange {
                     break;
             }
         }
-
         if (this.website.getMode() == null) this.website.setMode(Util.Mode.CHECKVALUE);
         if (!errorList.isEmpty()) {
             System.out.println();
@@ -384,17 +389,30 @@ public class PageChange {
         if (this.website.isNegation()) {
             initialTxt += "Negacja: \u001B[35m" + this.website.isNegation() + "\u001B[0m\n";
         }
-        if (this.website.getMode() == Util.Mode.PHRASES && !this.website.getPHRASES().isEmpty()) {
-            initialTxt += "Szukane frazy:\n\u001B[35m";
-            for (String phrase : this.website.getPHRASES()) {
-                initialTxt = initialTxt.concat("\u001B[35m" + phrase + "\u001B[0m\n");
-            }
-        }
-        if ((this.website.getMode() == Util.Mode.VALUEBIGGER || this.website.getMode() == Util.Mode.VALUESMALLER) && this.website.getPHRASES().isEmpty()) {
-            initialTxt += "Szukanie wartosci";
-            if (this.website.getMode() == Util.Mode.VALUEBIGGER) initialTxt += " wiekszej";
-            if (this.website.getMode() == Util.Mode.VALUESMALLER) initialTxt += " mniejszej";
-            initialTxt += "niz: \u001B[35m" + this.website.getThresholdValue() + "\u001B[0m\n";
+        switch (this.website.getMode()) {
+            case PHRASES:
+                if (!this.website.getPHRASES().isEmpty()) {
+                    initialTxt += "Szukane frazy:\n\u001B[35m";
+                    for (String phrase : this.website.getPHRASES()) {
+                        initialTxt = initialTxt.concat("\u001B[35m" + phrase + "\u001B[0m\n");
+                    }
+                }
+                break;
+            case VALUEBIGGER:
+            case VALUESMALLER:
+                if (this.website.getPHRASES().isEmpty()) {
+                    initialTxt += "Szukanie wartosci";
+                    if (this.website.getMode() == Util.Mode.VALUEBIGGER) initialTxt += " wiekszej";
+                    if (this.website.getMode() == Util.Mode.VALUESMALLER) initialTxt += " mniejszej";
+                    initialTxt += "niz: \u001B[35m" + this.website.getThresholdValue() + "\u001B[0m\n";
+                }
+                break;
+            case BIGGERTHAN:
+                initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
+                break;
+            case SMALLERTHAN:
+                initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
+                break;
         }
         if (this.website.getDate() != null) {
             checkDate();
@@ -404,12 +422,6 @@ public class PageChange {
         }
         if (this.website.getHour() != null) {
             checkHour();
-        }
-        if (this.website.getMode() == Util.Mode.BIGGERTHAN) {
-            initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
-        }
-        if (this.website.getMode() == Util.Mode.SMALLERTHAN) {
-            initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
         }
         System.out.println(initialTxt.substring(0, initialTxt.length() - 1));
     }
@@ -548,7 +560,6 @@ public class PageChange {
 
     private void printDefeatAndSleep(String tempPage) {
         String result = "\u001B[32m" + getTime() + " - ";
-
         switch (this.website.getMode()) {
             case Util.Mode.VALUEBIGGER:
                 result += "Znaleziona wartosc: '" + this.website.getActualValue() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + this.website.getThresholdValue() + "'";
@@ -584,33 +595,37 @@ public class PageChange {
 
     private void printSuccess(String phrase) {
         String result = "\u001B[01;41m" + getTime() + " - SUKCES - ";
-        if (this.website.getMode() == Util.Mode.PHRASES && !this.website.getPHRASES().isEmpty()) {
-            if (this.website.isNegation()) {
-                result += "nie znaleziono frazy: ";
-            } else {
-                result += "znaleziono fraze: ";
-            }
-            result += phrase;
+        switch (this.website.getMode()) {
+            case PHRASES:
+                if (!this.website.getPHRASES().isEmpty()) {
+                    if (this.website.isNegation()) {
+                        result += "nie znaleziono frazy: ";
+                    } else {
+                        result += "znaleziono fraze: ";
+                    }
+                    result += phrase;
+                }
+                break;
+            case VALUEBIGGER:
+            case VALUESMALLER:
+                result += "Znaleziona wartosc: " + this.website.getActualValue() + " jest ";
+                if (checkActualValueAgainstThresholdValue()) {
+                    result += "wieksza";
+                } else {
+                    result += "mniejsza";
+                }
+                result += " niz ustawiona wartosc progowa: " + this.website.getThresholdValue();
+                break;
+            case BIGGERTHAN:
+                result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest wieksza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
+                break;
+            case SMALLERTHAN:
+                result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest mniejsza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
+                break;
+            case CHECKVALUE:
+                result += "jest zmiana strony";
+                break;
         }
-        if (this.website.getMode() == Util.Mode.VALUEBIGGER || this.website.getMode() == Util.Mode.VALUESMALLER) {
-            result += "Znaleziona wartosc: " + this.website.getActualValue() + " jest ";
-            if (checkActualValueAgainstThresholdValue()) {
-                result += "wieksza";
-            } else {
-                result += "mniejsza";
-            }
-            result += " niz ustawiona wartosc progowa: " + this.website.getThresholdValue();
-        }
-
-        if (this.website.getMode() == Util.Mode.BIGGERTHAN) {
-            result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest wieksza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
-        }
-
-        if (this.website.getMode() == Util.Mode.SMALLERTHAN) {
-            result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest mniejsza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
-        }
-
-        if (this.website.getMode() == Util.Mode.CHECKVALUE) result += "jest zmiana strony";
 
         System.out.println(result + "\n\u001B[0m");
         if (!this.website.getEMAILS().isEmpty()) {
@@ -665,7 +680,7 @@ public class PageChange {
 
         } catch (Exception e) {
             if (retries <= retriesLimit) {
-                System.out.println("Wystapil blad podczas wysylania emaila" + e.getMessage() + ", ponawiam probe wyslania maila, proba nr " + retries + "/"
+                System.out.println("Wystapil blad podczas wysylania emaila: '" + e.getMessage() + "', ponawiam probe wyslania maila, proba nr " + retries + "/"
                         + retriesLimit);
                 sleep(30_000);
                 sendMail(email, urlString, searchedPhrase, ++retries, retriesLimit);

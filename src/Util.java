@@ -3,10 +3,10 @@ public class Util {
    public enum Mode {
         CHECKVALUE("Check Value", 1),
         PHRASES("Phrases", 2),
-        VALUEBIGGER("Value bigger", 2),
-        VALUESMALLER("Value smaller", 2),
-        BIGGERTHAN("Bigger than", 3),
-        SMALLERTHAN("Smaller than", 4);
+        VALUEBIGGER("Value bigger", 3),
+        VALUESMALLER("Value smaller", 4),
+        BIGGERTHAN("Bigger than", 5),
+        SMALLERTHAN("Smaller than", 6);
 
         private final String label;
         private final int code;
