@@ -473,7 +473,7 @@ public class PageChange {
 
     private void initialEmptyPageProtection(int i) {
         System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
-        if (i > 3) {
+        if (i > this.website.getEMPTY_PAGE_RETRIES()) {
             exit(30);
         }
         System.out.println(" Ponawiam probe za 30s. (" + i + "/" + this.website.getEMPTY_PAGE_RETRIES() + ")");
