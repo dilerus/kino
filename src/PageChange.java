@@ -20,10 +20,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PageChange {
-    private final Website website;
+    private final Config config;
 
     public PageChange() {
-        this.website = new Website();
+        this.config = new Config();
     }
 
     public static void main(String[] args) {
@@ -35,28 +35,28 @@ public class PageChange {
 
         String oldPage = null;
         for (int i = 1; i <= 4; i++) {
-            oldPage = pageChange.connection(pageChange.website.getUrl());
+            oldPage = pageChange.connection(pageChange.config.getUrl());
             if (!oldPage.isEmpty()) {
                 break;
             }
             pageChange.initialEmptyPageProtection(i);
         }
-        if (pageChange.website.getMode() == Util.Mode.PHRASES && pageChange.website.getPrefixIncrementation() != null) {
+        if (pageChange.config.getMode() == Config.Mode.PHRASES && pageChange.config.getPrefixIncrementation() != null) {
             pageChange.loadIncrementationPhrase(oldPage);
         }
         int emptyPageIndicator = 1;
-        while (pageChange.website.getFinish() > 0) {
-            pageChange.website.setTempPage(pageChange.connection(pageChange.website.getUrl()));
-            if (pageChange.emptyPageProtection(emptyPageIndicator, pageChange.website.getTempPage())) {
+        while (pageChange.config.getFinish() > 0) {
+            pageChange.config.setTempPage(pageChange.connection(pageChange.config.getUrl()));
+            if (pageChange.emptyPageProtection(emptyPageIndicator, pageChange.config.getTempPage())) {
                 emptyPageIndicator++;
-                pageChange.sleep(pageChange.website.getInterval() * 1_000);
+                pageChange.sleep(pageChange.config.getInterval() * 1_000);
                 continue;
             }
-            if (pageChange.website.isDebug()) {
-                System.out.println(pageChange.website.getTempPage());
+            if (pageChange.config.isDebug()) {
+                System.out.println(pageChange.config.getTempPage());
             }
-            pageChange.check(pageChange.website.getTempPage(), oldPage);
-            pageChange.website.setFinish(pageChange.website.getFinish() - 1);
+            pageChange.check(pageChange.config.getTempPage(), oldPage);
+            pageChange.config.setFinish(pageChange.config.getFinish() - 1);
             emptyPageIndicator = 1;
         }
         System.out.println("Wartosc parametru 'finish' doszla do 0.");
@@ -64,8 +64,8 @@ public class PageChange {
     }
 
     private void loadIncrementationPhrase(String oldPage) {
-        if (oldPage.contains(this.website.getPrefixIncrementation())) {
-            int startPos = oldPage.indexOf(this.website.getPrefixIncrementation()) + this.website.getPrefixIncrementation().length();
+        if (oldPage.contains(this.config.getPrefixIncrementation())) {
+            int startPos = oldPage.indexOf(this.config.getPrefixIncrementation()) + this.config.getPrefixIncrementation().length();
             int endPos = Math.min(startPos + 20, oldPage.length());
             String textAfterPrefix = oldPage.substring(startPos, endPos);
 
@@ -75,13 +75,13 @@ public class PageChange {
             if (matcher.find()) {
                 long incrementationValue = Long.parseLong(matcher.group());
                 incrementationValue++;
-                this.website.getPHRASES().add(this.website.getPrefixIncrementation() + incrementationValue);
-                if (this.website.getPHRASES().size() == 1) {
+                this.config.getPHRASES().add(this.config.getPrefixIncrementation() + incrementationValue);
+                if (this.config.getPHRASES().size() == 1) {
                     System.out.println("Szukane frazy:");
                 }
-                System.out.println("\u001B[35m" + this.website.getPrefixIncrementation() + incrementationValue + "\u001B[0m\n");
+                System.out.println("\u001B[35m" + this.config.getPrefixIncrementation() + incrementationValue + "\u001B[0m\n");
             } else {
-                System.out.println("\u001B[31mNie znaleziono wartosci numerycznej po prefixie: " + this.website.getPrefixIncrementation() + "\u001B[0m");
+                System.out.println("\u001B[31mNie znaleziono wartosci numerycznej po prefixie: " + this.config.getPrefixIncrementation() + "\u001B[0m");
             }
         }
     }
@@ -104,21 +104,21 @@ public class PageChange {
     }
 
     private void check(String tempPage, String oldPage) {
-        switch (this.website.getMode()) {
+        switch (this.config.getMode()) {
             case PHRASES:
-                if (!this.website.getPHRASES().isEmpty()) {
-                    for (String phrase : this.website.getPHRASES()) {
-                        if ((!this.website.isNegation() && !tempPage.contains(phrase)) || (this.website.isNegation() && tempPage.contains(phrase))) {
+                if (!this.config.getPHRASES().isEmpty()) {
+                    for (String phrase : this.config.getPHRASES()) {
+                        if ((!this.config.isNegation() && !tempPage.contains(phrase)) || (this.config.isNegation() && tempPage.contains(phrase))) {
                             printDefeatPhrases(tempPage, phrase);
                         } else {
                             printSuccess(phrase);
                         }
                     }
                     System.out.println();
-                    sleep(this.website.getInterval() * 1_000);
+                    sleep(this.config.getInterval() * 1_000);
                 }
                 return;
-            case VALUEBIGGER:
+            case VALUE_BIGGER:
                 setActualValue(tempPage);
                 if (checkActualValueAgainstThresholdValue()) {
                     printSuccess(null);
@@ -126,7 +126,7 @@ public class PageChange {
                     printDefeatAndSleep(tempPage);
                 }
                 return;
-            case VALUESMALLER:
+            case VALUE_SMALLER:
                 setActualValue(tempPage);
                 if (!checkActualValueAgainstThresholdValue()) {
                     printSuccess(null);
@@ -134,21 +134,21 @@ public class PageChange {
                     printDefeatAndSleep(tempPage);
                 }
                 return;
-            case BIGGERTHAN:
-                if (tempPage.length() > this.website.getSiteSize()) {
+            case SITE_BIGGER_THAN:
+                if (tempPage.length() > this.config.getSiteSize()) {
                     printSuccess(null);
                 } else {
                     printDefeatAndSleep(tempPage);
                 }
                 return;
-            case SMALLERTHAN:
-                if (tempPage.length() < this.website.getSiteSize()) {
+            case SITE_SMALLER_THAN:
+                if (tempPage.length() < this.config.getSiteSize()) {
                     printSuccess(null);
                 } else {
                     printDefeatAndSleep(tempPage);
                 }
                 return;
-            case CHECKVALUE:
+            case CHECK_VALUE:
                 if (tempPage.equals(oldPage)) {
                     printDefeatAndSleep(tempPage);
                 } else {
@@ -184,41 +184,40 @@ public class PageChange {
         if (args == null) {
             return;
         }
-        List<String> errorList = new ArrayList<>();
+        List<Error> errorList = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "-u":
                     try {
-                        this.website.setUrl(new URI(args[i + 1]).toURL());
+                        this.config.setUrl(new URI(args[i + 1]).toURL());
                     } catch (RuntimeException | URISyntaxException | MalformedURLException e) {
-                        errorList.add(
-                                "\n\u001B[31mNieprawidlowy parametr URL (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
+                        errorList.add(new Error("\n\u001B[31mNieprawidlowy parametr URL (" + args[i + 1] + ")\u001B[0m", true));
                     }
                     break;
                 case "-i":
                     try {
-                        this.website.setInterval(Long.parseLong(args[i + 1]));
+                        this.config.setInterval(Long.parseLong(args[i + 1]));
                     } catch (Exception e) {
-                        errorList.add("\n\u001B[31mNieprawidlowy parametr interwal (" + args[i + 1]
-                                + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna\u001B[0m");
+                        errorList.add(new Error("\n\u001B[31mNieprawidlowy parametr interwal (" + args[i + 1]
+                                + ")\u001B[0m", true));
                     }
                     break;
                 case "-f":
                     try {
-                        this.website.setFinish(Long.parseLong(args[i + 1]));
+                        this.config.setFinish(Long.parseLong(args[i + 1]));
                     } catch (Exception e) {
-                        errorList.add(
-                                "\n\u001B[31mNieprawidlowy parametr finish (" + args[i + 1] + "), zostanie zignorowany! Uzyta zostanie wartosc domyslna.\u001B[0m");
+                        errorList.add(new Error(
+                                "\n\u001B[31mNieprawidlowy parametr finish (" + args[i + 1] + ")\u001B[0m", true));
                     }
                     break;
                 case "-e":
                     for (int j = i + 1; j < args.length; j++) {
                         String email = args[j];
-                        if (!this.website.getAVAILABLE_PARAMETERS().contains(email)) {
+                        if (!this.config.getAVAILABLE_PARAMETERS().contains(email)) {
                             if (isValidEmail(email)) {
-                                this.website.getEMAILS().add(email);
+                                this.config.getEMAILS().add(email);
                             } else {
-                                errorList.add("\u001B[31mNieprawidlowy parametr email (" + email + "), zostanie zignorowany!\u001B[0m");
+                                errorList.add(new Error("\u001B[31mNieprawidlowy parametr email (" + email + ")\u001B[0m", true));
                             }
                         } else {
                             break;
@@ -226,17 +225,17 @@ public class PageChange {
                     }
                     break;
                 case "-s":
-                    this.website.setSound(true);
+                    this.config.setSound(true);
                     break;
                 case "-n":
-                    this.website.setNegation(true);
+                    this.config.setNegation(true);
                     break;
                 case "-p":
-                    if (this.website.getMode() == null) this.website.setMode(Util.Mode.PHRASES);
+                    if (this.config.getMode() == null) this.config.setMode(Config.Mode.PHRASES);
                     for (int j = i + 1; j < args.length; j++) {
                         String phrase = normalizeString(args[j]);
-                        if (!this.website.getAVAILABLE_PARAMETERS().contains(phrase)) {
-                            this.website.getPHRASES().add(phrase);
+                        if (!this.config.getAVAILABLE_PARAMETERS().contains(phrase)) {
+                            this.config.getPHRASES().add(phrase);
                         } else {
                             break;
                         }
@@ -244,78 +243,82 @@ public class PageChange {
                     break;
                 case "-d":
                     try {
-                        this.website.setDay(DayOfWeek.valueOf(args[i + 1]));
+                        this.config.setDay(DayOfWeek.valueOf(args[i + 1]));
                     } catch (IllegalArgumentException e) {
-                        errorList.add("\u001B[31mNieprawidlowy parametr 'day' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                        errorList.add(new Error("\u001B[31mNieprawidlowy parametr 'day' (" + args[i + 1] + ")\u001B[0m", true));
                     }
                     break;
                 case "-h":
                     try {
-                        this.website.setHour(LocalTime.of(Integer.parseInt(args[i + 1]), 0));
+                        this.config.setHour(LocalTime.of(Integer.parseInt(args[i + 1]), 0));
                     } catch (NumberFormatException e) {
-                        errorList.add("\u001B[31mNieprawidlowy parametr 'hour' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                        errorList.add(new Error("\u001B[31mNieprawidlowy parametr 'hour' (" + args[i + 1] + ")\u001B[0m", true));
                     }
                     break;
                 case "-date":
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
                     try {
-                        this.website.setDate(LocalDate.parse(args[i + 1], formatter));
+                        this.config.setDate(LocalDate.parse(args[i + 1], formatter));
                     } catch (DateTimeParseException e) {
-                        System.out.println("\u001B[31mNieprawidlowy parametr 'date' (" + args[i + 1] + "), zostanie zignorowany!\u001B[0m");
+                        errorList.add(new Error("\u001B[31mNieprawidlowy parametr 'date' (" + args[i + 1] + ")\u001B[0m", true));
                     }
                     break;
                 case "-vb":
-                    if (this.website.getMode() == null) {
-                        this.website.setMode(Util.Mode.VALUEBIGGER);
-                        this.website.setPreValue(normalizeString(args[i + 1]));
-                        this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
+                    if (this.config.getMode() == null) {
+                        this.config.setMode(Config.Mode.VALUE_BIGGER);
+                        this.config.setPreValue(normalizeString(args[i + 1]));
+                        this.config.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
                     }
                     break;
                 case "-vs":
-                    if (this.website.getMode() == null) {
-                        this.website.setMode(Util.Mode.VALUESMALLER);
-                        this.website.setPreValue(normalizeString(args[i + 1]));
-                        this.website.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
+                    if (this.config.getMode() == null) {
+                        this.config.setMode(Config.Mode.VALUE_SMALLER);
+                        this.config.setPreValue(normalizeString(args[i + 1]));
+                        this.config.setThresholdValue(Float.parseFloat(args[i + 2].replaceAll(",", ".")));
                     }
                     break;
                 case "-inc":
-                    if (this.website.getMode() == null) {
-                        this.website.setMode(Util.Mode.PHRASES);
-                        this.website.setPrefixIncrementation(normalizeString(args[i + 1]));
+                    if (this.config.getMode() == null) {
+                        this.config.setMode(Config.Mode.PHRASES);
+                        this.config.setPrefixIncrementation(normalizeString(args[i + 1]));
                     }
                     break;
                 case "-bt":
-                    if (this.website.getMode() == null) {
-                        this.website.setMode(Util.Mode.BIGGERTHAN);
+                    if (this.config.getMode() == null) {
+                        this.config.setMode(Config.Mode.SITE_BIGGER_THAN);
                         try {
-                            this.website.setSiteSize(Long.parseLong(args[i + 1]));
+                            this.config.setSiteSize(Long.parseLong(args[i + 1]));
                         } catch (Exception e) {
-                            errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
-                                    + "), zostanie zignorowany!");
+                            errorList.add(new Error("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
+                                    + ")\u001B[0m", true));
                         }
                     }
                     break;
                 case "-st":
-                    if (this.website.getMode() == null) {
-                        this.website.setMode(Util.Mode.SMALLERTHAN);
+                    if (this.config.getMode() == null) {
+                        this.config.setMode(Config.Mode.SITE_SMALLER_THAN);
                         try {
-                            this.website.setSiteSize(Long.parseLong(args[i + 1]));
+                            this.config.setSiteSize(Long.parseLong(args[i + 1]));
                         } catch (Exception e) {
-                            errorList.add("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
-                                    + "), zostanie zignorowany!");
+                            errorList.add(new Error("\n\u001B[31mNieprawidlowy parametr siteSize (" + args[i + 1]
+                                    + ")\u001B[0m", true));
                         }
                     }
                     break;
                 case "-debug":
-                    this.website.setDebug(true);
+                    this.config.setDebug(true);
                     break;
             }
         }
-        if (this.website.getMode() == null) this.website.setMode(Util.Mode.CHECKVALUE);
+        if (this.config.getMode() == null) this.config.setMode(Config.Mode.CHECK_VALUE);
         if (!errorList.isEmpty()) {
-            System.out.println();
-            for (String error : errorList) {
-                System.out.println(error);
+            System.out.println("Errory: /n");
+            errorList.stream().filter(error -> !error.isFatal()).forEach(error -> System.out.println(error.getName()));
+            System.out.println("Errory powazne: /n");
+            errorList.stream().filter(Error::isFatal).forEach(error -> System.out.println(error.getName()));
+            if (errorList.stream().anyMatch(Error::isFatal)) {
+                System.out.println("\nWystapily bledy podczas parsowania argumentow, poniewaz niektore z nich sa krytyczne, program zostanie zamkniety.");
+                exit(30);
             }
         }
     }
@@ -328,17 +331,17 @@ public class PageChange {
 
     private void checkHour() {
         LocalTime currentTime = LocalTime.now();
-        if (!currentTime.isAfter(this.website.getHour())) {
-            long secondsDifference = Duration.between(currentTime, this.website.getHour()).abs().getSeconds();
-            System.out.println("\u001B[31mNie jest po godzinie " + this.website.getHour() + ", usypiam program na " + secondsDifference / 60 + " minut.\u001B[0m");
+        if (!currentTime.isAfter(this.config.getHour())) {
+            long secondsDifference = Duration.between(currentTime, this.config.getHour()).abs().getSeconds();
+            System.out.println("\u001B[31mNie jest po godzinie " + this.config.getHour() + ", usypiam program na " + secondsDifference / 60 + " minut.\u001B[0m");
             sleep(secondsDifference * 1_000);
         }
     }
 
     private void checkDay() {
         DayOfWeek dayOfWeek = LocalDate.now().getDayOfWeek();
-        if (this.website.getDay() != dayOfWeek) {
-            System.out.println("\u001B[31mDzis nie jest " + this.website.getDay() + ", dzis jest " + dayOfWeek + "!\u001B[0m");
+        if (this.config.getDay() != dayOfWeek) {
+            System.out.println("\u001B[31mDzis nie jest " + this.config.getDay() + ", dzis jest " + dayOfWeek + "!\u001B[0m");
             exit(30);
         }
     }
@@ -352,9 +355,9 @@ public class PageChange {
     private void checkDate() {
         LocalDate currentDate = LocalDate.now();
         DateTimeFormatter formattedCurrentDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        if (currentDate.isBefore(this.website.getDate())) {
+        if (currentDate.isBefore(this.config.getDate())) {
             System.out.println(
-                    "\u001B[31mDzis nie jest " + formattedCurrentDate.format(this.website.getDate()) + " lub pozniej, dzis jest dopiero " + formattedCurrentDate.format(
+                    "\u001B[31mDzis nie jest " + formattedCurrentDate.format(this.config.getDate()) + " lub pozniej, dzis jest dopiero " + formattedCurrentDate.format(
                             currentDate) + "!\u001B[0m");
             exit(30);
         }
@@ -362,65 +365,65 @@ public class PageChange {
 
     private void initialText() {
         DecimalFormat decimalFormat = new DecimalFormat("#,###");
-        String formattedFinish = decimalFormat.format(this.website.getFinish());
+        String formattedFinish = decimalFormat.format(this.config.getFinish());
         String initialTxt = "\nPARAMETRY PROGRAMU:";
-        initialTxt += "\nStrona: \u001B[35m" + this.website.getUrl() + "\u001B[0m\n";
-        initialTxt += "Tryb: \u001B[35m" + this.website.getMode().getLabel() + "\u001B[0m\n";
-        initialTxt += "Czestotliwosc odswiezania: \u001B[35m" + this.website.getInterval() + "s \u001B[0m\n";
+        initialTxt += "\nStrona: \u001B[35m" + this.config.getUrl() + "\u001B[0m\n";
+        initialTxt += "Tryb: \u001B[35m" + this.config.getMode().getLabel() + "\u001B[0m\n";
+        initialTxt += "Czestotliwosc odswiezania: \u001B[35m" + this.config.getInterval() + "s \u001B[0m\n";
         initialTxt += "Koniec po: \u001B[35m" + formattedFinish + " iteracjach \u001B[0m\n";
 
-        if (!this.website.getEMAILS().isEmpty()) {
+        if (!this.config.getEMAILS().isEmpty()) {
             initialTxt += "Adres/y wysylki emaila: \u001B[35m";
-            for (String email : this.website.getEMAILS()) {
+            for (String email : this.config.getEMAILS()) {
                 initialTxt = initialTxt.concat(email + ", ");
             }
             initialTxt = initialTxt.substring(0, initialTxt.length() - 2).concat("\u001B[0m\n");
         }
-        initialTxt += "Dzwiek: \u001B[35m" + this.website.isSound() + "\u001B[0m\n";
-        if (this.website.getDate() != null) {
-            initialTxt += "Po dacie: \u001B[35m" + DateTimeFormatter.ofPattern("dd-MM-yyyy").format(this.website.getDate()) + "\u001B[0m\n";
+        initialTxt += "Dzwiek: \u001B[35m" + this.config.isSound() + "\u001B[0m\n";
+        if (this.config.getDate() != null) {
+            initialTxt += "Po dacie: \u001B[35m" + DateTimeFormatter.ofPattern("dd-MM-yyyy").format(this.config.getDate()) + "\u001B[0m\n";
         }
-        if (this.website.getDay() != null) {
-            initialTxt += "Dzien tygodnia: \u001B[35m" + this.website.getDay() + "\u001B[0m\n";
+        if (this.config.getDay() != null) {
+            initialTxt += "Dzien tygodnia: \u001B[35m" + this.config.getDay() + "\u001B[0m\n";
         }
-        if (this.website.getHour() != null) {
-            initialTxt += "Godzina: \u001B[35m" + this.website.getHour() + "\u001B[0m\n";
+        if (this.config.getHour() != null) {
+            initialTxt += "Godzina: \u001B[35m" + this.config.getHour() + "\u001B[0m\n";
         }
-        if (this.website.isNegation()) {
-            initialTxt += "Negacja: \u001B[35m" + this.website.isNegation() + "\u001B[0m\n";
+        if (this.config.isNegation()) {
+            initialTxt += "Negacja: \u001B[35m true\u001B[0m\n";
         }
-        switch (this.website.getMode()) {
+        switch (this.config.getMode()) {
             case PHRASES:
-                if (!this.website.getPHRASES().isEmpty()) {
+                if (!this.config.getPHRASES().isEmpty()) {
                     initialTxt += "Szukane frazy:\n\u001B[35m";
-                    for (String phrase : this.website.getPHRASES()) {
+                    for (String phrase : this.config.getPHRASES()) {
                         initialTxt = initialTxt.concat("\u001B[35m" + phrase + "\u001B[0m\n");
                     }
                 }
                 break;
-            case VALUEBIGGER:
-            case VALUESMALLER:
-                if (this.website.getPHRASES().isEmpty()) {
+            case VALUE_BIGGER:
+            case VALUE_SMALLER:
+                if (this.config.getPHRASES().isEmpty()) {
                     initialTxt += "Szukanie wartosci";
-                    if (this.website.getMode() == Util.Mode.VALUEBIGGER) initialTxt += " wiekszej";
-                    if (this.website.getMode() == Util.Mode.VALUESMALLER) initialTxt += " mniejszej";
-                    initialTxt += "niz: \u001B[35m" + this.website.getThresholdValue() + "\u001B[0m\n";
+                    if (this.config.getMode() == Config.Mode.VALUE_BIGGER) initialTxt += " wiekszej";
+                    if (this.config.getMode() == Config.Mode.VALUE_SMALLER) initialTxt += " mniejszej";
+                    initialTxt += "niz: \u001B[35m" + this.config.getThresholdValue() + "\u001B[0m\n";
                 }
                 break;
-            case BIGGERTHAN:
-                initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
+            case SITE_BIGGER_THAN:
+                initialTxt += "Strona ma byc wieksza niz: \u001B[35m" + this.config.getSiteSize() + "\u001B[0m\n";
                 break;
-            case SMALLERTHAN:
-                initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + this.website.getSiteSize() + "\u001B[0m\n";
+            case SITE_SMALLER_THAN:
+                initialTxt += "Strona ma byc mniejsza niz: \u001B[35m" + this.config.getSiteSize() + "\u001B[0m\n";
                 break;
         }
-        if (this.website.getDate() != null) {
+        if (this.config.getDate() != null) {
             checkDate();
         }
-        if (this.website.getDay() != null) {
+        if (this.config.getDay() != null) {
             checkDay();
         }
-        if (this.website.getHour() != null) {
+        if (this.config.getHour() != null) {
             checkHour();
         }
         System.out.println(initialTxt.substring(0, initialTxt.length() - 1));
@@ -473,10 +476,10 @@ public class PageChange {
 
     private void initialEmptyPageProtection(int i) {
         System.out.print("Pusta strona... Prawdopodobnie zly adres lub brak internetu...");
-        if (i > this.website.getEMPTY_PAGE_RETRIES()) {
+        if (i > this.config.getEMPTY_PAGE_RETRIES()) {
             exit(30);
         }
-        System.out.println(" Ponawiam probe za 30s. (" + i + "/" + this.website.getEMPTY_PAGE_RETRIES() + ")");
+        System.out.println(" Ponawiam probe za 30s. (" + i + "/" + this.config.getEMPTY_PAGE_RETRIES() + ")");
         sleep(30_000);
     }
 
@@ -495,18 +498,18 @@ public class PageChange {
     }
 
     private boolean checkActualValueAgainstThresholdValue() {
-        return this.website.getActualValue().compareTo(this.website.getThresholdValue()) > 0;
+        return this.config.getActualValue().compareTo(this.config.getThresholdValue()) > 0;
     }
 
     private void setActualValue(String page) {
-        int position = page.indexOf(this.website.getPreValue());
+        int position = page.indexOf(this.config.getPreValue());
         if (position == -1) {
-            System.out.println("Fragment '" + this.website.getPreValue() + "' nie zostal znaleziony na stronie.");
+            System.out.println("Fragment '" + this.config.getPreValue() + "' nie zostal znaleziony na stronie.");
             exit(30);
         }
         float number = 0;
-        int endPos = Math.min(position + this.website.getPreValue().length() + 20, page.length());
-        String text = page.substring(position + this.website.getPreValue().length(), endPos);
+        int endPos = Math.min(position + this.config.getPreValue().length() + 20, page.length());
+        String text = page.substring(position + this.config.getPreValue().length(), endPos);
         Pattern pattern = Pattern.compile("[0-9,.]+(\\.[0-9]+)?");
         Matcher matcher = pattern.matcher(text);
         if (matcher.find()) {
@@ -526,7 +529,7 @@ public class PageChange {
             }
             number = Float.parseFloat(numberStr);
         }
-        this.website.setActualValue(number);
+        this.config.setActualValue(number);
     }
 
     private int countChar(String text, char ch) {
@@ -560,33 +563,33 @@ public class PageChange {
 
     private void printDefeatAndSleep(String tempPage) {
         String result = "\u001B[32m" + getTime() + " - ";
-        switch (this.website.getMode()) {
-            case Util.Mode.VALUEBIGGER:
-                result += "Znaleziona wartosc: '" + this.website.getActualValue() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + this.website.getThresholdValue() + "'";
+        switch (this.config.getMode()) {
+            case Config.Mode.VALUE_BIGGER:
+                result += "Znaleziona wartosc: '" + this.config.getActualValue() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + this.config.getThresholdValue() + "'";
                 break;
-            case Util.Mode.VALUESMALLER:
-                result += "Znaleziona wartosc: '" + this.website.getActualValue() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + this.website.getThresholdValue() + "'";
+            case Config.Mode.VALUE_SMALLER:
+                result += "Znaleziona wartosc: '" + this.config.getActualValue() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + this.config.getThresholdValue() + "'";
                 break;
-            case Util.Mode.BIGGERTHAN:
-                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + this.website.getSiteSize() + "'\u001B[0m";
+            case Config.Mode.SITE_BIGGER_THAN:
+                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest wieksza niz ustawiona wartosc progowa: '" + this.config.getSiteSize() + "'\u001B[0m";
                 break;
-            case Util.Mode.SMALLERTHAN:
-                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + this.website.getSiteSize() + "'\u001B[0m";
+            case Config.Mode.SITE_SMALLER_THAN:
+                result += "Wielkosc strony: '" + tempPage.length() + "', nie jest mniejsza niz ustawiona wartosc progowa: '" + this.config.getSiteSize() + "'\u001B[0m";
                 break;
-            case Util.Mode.CHECKVALUE:
+            case Config.Mode.CHECK_VALUE:
                 result += "Brak zmiany strony.";
                 break;
         }
-        if (this.website.getMode() != Util.Mode.SMALLERTHAN && this.website.getMode() != Util.Mode.BIGGERTHAN) {
+        if (this.config.getMode() != Config.Mode.SITE_SMALLER_THAN && this.config.getMode() != Config.Mode.SITE_BIGGER_THAN) {
             System.out.println(result += "- wielkosc strony: " + tempPage.length() + "\u001B[0m");
         }
         System.out.println(result);
-        sleep(this.website.getInterval() * 1_000);
+        sleep(this.config.getInterval() * 1_000);
     }
 
     private void printDefeatPhrases(String tempPage, String phrase) {
         String result = "\u001B[32m" + getTime() + " - szukam ";
-        if (this.website.isNegation()) {
+        if (this.config.isNegation()) {
             result += "braku ";
         }
         result += "tekstu: " + phrase + "... ";
@@ -595,10 +598,10 @@ public class PageChange {
 
     private void printSuccess(String phrase) {
         String result = "\u001B[01;41m" + getTime() + " - SUKCES - ";
-        switch (this.website.getMode()) {
+        switch (this.config.getMode()) {
             case PHRASES:
-                if (!this.website.getPHRASES().isEmpty()) {
-                    if (this.website.isNegation()) {
+                if (!this.config.getPHRASES().isEmpty()) {
+                    if (this.config.isNegation()) {
                         result += "nie znaleziono frazy: ";
                     } else {
                         result += "znaleziono fraze: ";
@@ -606,41 +609,41 @@ public class PageChange {
                     result += phrase;
                 }
                 break;
-            case VALUEBIGGER:
-            case VALUESMALLER:
-                result += "Znaleziona wartosc: " + this.website.getActualValue() + " jest ";
+            case VALUE_BIGGER:
+            case VALUE_SMALLER:
+                result += "Znaleziona wartosc: " + this.config.getActualValue() + " jest ";
                 if (checkActualValueAgainstThresholdValue()) {
                     result += "wieksza";
                 } else {
                     result += "mniejsza";
                 }
-                result += " niz ustawiona wartosc progowa: " + this.website.getThresholdValue();
+                result += " niz ustawiona wartosc progowa: " + this.config.getThresholdValue();
                 break;
-            case BIGGERTHAN:
-                result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest wieksza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
+            case SITE_BIGGER_THAN:
+                result += "Wielkosc strony: " + this.config.getTempPage().length() + " jest wieksza niz ustawiona wartosc progowa: " + this.config.getSiteSize();
                 break;
-            case SMALLERTHAN:
-                result += "Wielkosc strony: " + this.website.getTempPage().length() + " jest mniejsza niz ustawiona wartosc progowa: " + this.website.getSiteSize();
+            case SITE_SMALLER_THAN:
+                result += "Wielkosc strony: " + this.config.getTempPage().length() + " jest mniejsza niz ustawiona wartosc progowa: " + this.config.getSiteSize();
                 break;
-            case CHECKVALUE:
+            case CHECK_VALUE:
                 result += "jest zmiana strony";
                 break;
         }
 
         System.out.println(result + "\n\u001B[0m");
-        if (!this.website.getEMAILS().isEmpty()) {
-            for (String email : this.website.getEMAILS()) {
-                sendMail(email, this.website.getUrl(), phrase, 1, 5);
+        if (!this.config.getEMAILS().isEmpty()) {
+            for (String email : this.config.getEMAILS()) {
+                sendMail(email, this.config.getUrl(), phrase, 1, 5);
             }
         }
-        if (this.website.isSound()) {
+        if (this.config.isSound()) {
             playSound(10_000);
         }
         exit(3_600);
     }
 
     private void sendMail(String email, URL urlString, String searchedPhrase, int retries, int retriesLimit) {
-        if (this.website.isSound()) {
+        if (this.config.isSound()) {
             playSound(3);
         }
         String host = "smtp.gmail.com";
@@ -668,7 +671,7 @@ public class PageChange {
             String txt = "Zmiana strony!!!\n";
             txt += "Strona: " + urlString + "\n";
             if (searchedPhrase != null) {
-                if (this.website.isNegation()) {
+                if (this.config.isNegation()) {
                     txt += "Nie znaleziono textu: " + searchedPhrase;
                 } else {
                     txt += "Znaleziono text: " + searchedPhrase;
@@ -689,7 +692,7 @@ public class PageChange {
     }
 
     private boolean isValidEmail(String email) {
-        Matcher matcher = Pattern.compile(this.website.getEMAIL_REGEX()).matcher(email);
+        Matcher matcher = Pattern.compile(this.config.getEMAIL_REGEX()).matcher(email);
         return matcher.matches();
     }
 }

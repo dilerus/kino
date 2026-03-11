@@ -11,11 +11,11 @@ import java.util.List;
 
 @Getter
 @Setter
-public class Website {
+public class Config {
     private final List<String> EMAILS = new ArrayList<>();
     private final List<String> PHRASES = new ArrayList<>();
     private final List<String> AVAILABLE_PARAMETERS =
-            Arrays.asList("-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs", "-inc", "-debug", "-bt", "-st");
+            Arrays.asList("-mode", "-ss", "-u", "-i", "-f", "-e", "-s", "-p", "-h", "-d", "-date", "-n", "-vb", "-vs", "-inc", "-debug", "-bt", "-st");
     private final int EMPTY_PAGE_RETRIES = 5;
     private final String EMAIL_REGEX =
             "^[_A-Za-z0-9-]+(\\.[_A-Za-z0-9-]+)*@"
@@ -35,5 +35,22 @@ public class Website {
     private boolean debug;
     private String prefixIncrementation;
     private String tempPage;
-    private Util.Mode mode;
+    private Mode mode;
+
+
+    @Getter
+    public enum Mode {
+        CHECK_VALUE("Check Value"),
+        PHRASES("Phrases"),
+        VALUE_BIGGER("Value bigger"),
+        VALUE_SMALLER("Value smaller"),
+        SITE_BIGGER_THAN("Site bigger than"),
+        SITE_SMALLER_THAN("Site smaller than");
+
+        private final String label;
+
+        Mode(String label) {
+            this.label = label;
+        }
+    }
 }
