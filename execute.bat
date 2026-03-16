@@ -1,5 +1,6 @@
-cd C:\personal-projects\kino4\out\artifacts\kino4_jar
-java -jar Kino4.jar -u https://www.muzyczny.org/pl/repertuar.html -i 1800 -s -e dilerus@gmail.com -p "01</div><div class=""h6"">niedziela</div></div><div class=""d-none d-md-block col-md-1 separator""></div><div class=""col-sm-8 col-md-7 spektakl_szczegoly""><div class=""h2"">QUO VADIS</div>" "02</div><div class=""h6"">niedziela</div></div><div class=""d-none d-md-block col-md-1 separator""></div><div class=""col-sm-8 col-md-7 spektakl_szczegoly""><div class=""h2"">QUO VADIS</div>" "03</div><div class=""h6"">niedziela</div></div><div class=""d-none d-md-block col-md-1 separator""></div><div class=""col-sm-8 col-md-7 spektakl_szczegoly""><div class=""h2"">QUO VADIS</div>"
+@echo off
+cd /d "%~dp0"
+java -cp "out;lib\javax.mail-1.6.2.jar" com.pagechange.Main %*
 
 
 :: Parametry programu:
